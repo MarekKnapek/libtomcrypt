@@ -50,6 +50,52 @@ struct sha1_state {
 };
 #endif
 
+#ifdef LTC_SHA1_X86
+
+#if !defined ltc_alignas
+#if defined _MSC_VER
+#if _MSC_VER >= 1900l
+#define ltc_alignas(x) alignas((x))
+#endif
+#endif
+#endif
+
+#if !defined ltc_alignas
+#if defined __cplusplus
+#if __cplusplus >= 201103l
+#define ltc_alignas(x) alignas((x))
+#else
+/* todo add alignas for compilers that do not claim to support C++11 but have it anyway */
+#endif
+#endif
+#endif
+
+#if !defined ltc_alignas
+#if defined __STDC_VERSION__
+#if __STDC_VERSION__ >= 202311l
+#define ltc_alignas(x) alignas((x))
+#elif __STDC_VERSION__ >= 201112l
+#define ltc_alignas(x) _Alignas((x))
+#else
+/* todo add alignas for compilers that do not claim to support standard C11 but have it anyway */
+#endif
+#else
+/* todo add alignas for compilers that do not claim to support standard C but have it anyway */
+#endif
+#endif
+
+#if !defined ltc_alignas
+#error Compiler not supported.
+#endif
+
+struct sha1_x86_state {
+    ltc_alignas(16) ulong32 state[5];
+    int curlen;
+    ulong64 length;
+    ltc_alignas(16) unsigned char buf[64];
+};
+#endif
+
 #ifdef LTC_MD5
 struct md5_state {
     ulong64 length;
@@ -175,6 +221,9 @@ typedef union Hash_state {
 #endif
 #ifdef LTC_SHA1
     struct sha1_state   sha1;
+#endif
+#ifdef LTC_SHA1_X86
+    struct sha1_x86_state   sha1_x86;
 #endif
 #ifdef LTC_MD5
     struct md5_state    md5;
@@ -398,6 +447,14 @@ int sha1_process(hash_state * md, const unsigned char *in, unsigned long inlen);
 int sha1_done(hash_state * md, unsigned char *out);
 int sha1_test(void);
 extern const struct ltc_hash_descriptor sha1_desc;
+#endif
+
+#ifdef LTC_SHA1_X86
+int sha1_x86_init(hash_state * md);
+int sha1_x86_process(hash_state * md, const unsigned char *in, unsigned long inlen);
+int sha1_x86_done(hash_state * md, unsigned char *out);
+int sha1_x86_test(void);
+extern const struct ltc_hash_descriptor sha1_x86_desc;
 #endif
 
 #ifdef LTC_BLAKE2S

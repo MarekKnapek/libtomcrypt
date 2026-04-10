@@ -89,6 +89,7 @@
 
    #define LTC_NO_HASHES
    #define LTC_SHA1
+   #define LTC_SHA1_X86
    #define LTC_SHA3
    #define LTC_SHA512
    #define LTC_SHA512_256
@@ -271,6 +272,7 @@
 #define LTC_SHA224
 #define LTC_TIGER
 #define LTC_SHA1
+#define LTC_SHA1_X86
 #define LTC_MD5
 #define LTC_MD4
 #define LTC_MD2
