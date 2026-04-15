@@ -54,4 +54,10 @@ struct ltc_prng_descriptor* no_prng_desc_get(void);
 void no_prng_desc_free(struct ltc_prng_descriptor*);
 #endif
 
+#if defined _MSC_VER
+#define ltc_strdup _strdup
+#else
+#define ltc_strdup strdup
+#endif
+
 #endif

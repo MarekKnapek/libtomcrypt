@@ -397,7 +397,7 @@ int main(int argc, char **argv)
    /* single test name from commandline */
    if (argc > 1) single_test = argv[1];
 
-   dur = epoch_usec();
+   dur = (long)epoch_usec();
    for (i = 0; i < LTC_ARRAY_SIZE(test_functions); ++i) {
       if (single_test && strstr(test_functions[i].name, single_test) == NULL) {
         continue;
@@ -443,7 +443,7 @@ int main(int argc, char **argv)
          fail++;
       }
    }
-   dur = epoch_usec() - dur;
+   dur = (unsigned long)(epoch_usec() - dur);
 
 #ifdef LTC_PTHREAD
    XFREE(tinfo);
