@@ -33,7 +33,7 @@ static int s_ed25519_sign(const unsigned char  *msg, unsigned long  msglen,
    }
 
    smlen = msglen + 64;
-   s = XMALLOC(smlen);
+   s = XMALLOC((size_t)smlen);
    if (s == NULL) return CRYPT_MEM;
 
    err = tweetnacl_crypto_sign(s, &smlen,

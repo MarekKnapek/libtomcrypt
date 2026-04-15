@@ -14,7 +14,7 @@ int ec25519_crypto_ctx(unsigned char *out, unsigned long *outlen, unsigned char 
   unsigned char *buf = out;
 
   const char *prefix = "SigEd25519 no Ed25519 collisions";
-  const unsigned long prefix_len = XSTRLEN(prefix);
+  const unsigned long prefix_len = (unsigned long)XSTRLEN(prefix);
   const unsigned char ctxlen8 = (unsigned char)ctxlen;
 
   if (ctxlen > 255u) return CRYPT_INPUT_TOO_LONG;
@@ -33,7 +33,7 @@ int ec25519_crypto_ctx(unsigned char *out, unsigned long *outlen, unsigned char 
     buf += ctxlen;
   }
 
-  *outlen = buf-out;
+  *outlen = (unsigned long)(buf - out);
 
   return CRYPT_OK;
 }

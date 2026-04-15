@@ -453,7 +453,7 @@ static LTC_INLINE int s_kangaroo_twelve_process(hash_state *md, const unsigned c
    {
       rem = md->kt.remaining;
       amount = rem < inlen ? rem : inlen;
-      md->kt.remaining -= amount;
+      md->kt.remaining -= (unsigned short)amount;
       if ((err = turbo_shake_process((hash_state*)&md->kt.outer, in, amount)) != CRYPT_OK) return err;
       in += amount;
       inlen -= amount;
@@ -471,7 +471,7 @@ static LTC_INLINE int s_kangaroo_twelve_process(hash_state *md, const unsigned c
       {
          rem = md->kt.remaining;
          amount = rem < inlen ? rem : inlen;
-         md->kt.remaining -= amount;
+         md->kt.remaining -= (unsigned short)amount;
          if ((err = turbo_shake_process((hash_state*)&md->kt.inner, in, amount)) != CRYPT_OK) return err;
          in += amount;
          inlen -= amount;
