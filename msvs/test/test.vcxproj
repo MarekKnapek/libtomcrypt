@@ -131,6 +131,45 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CInclude Include="..\..\common.h" />
+    <CInclude Include="..\..\tomcrypt_test.h" />
+    <ClCompile Include="..\..\tests\argon2_test.c" />
+    <ClCompile Include="..\..\tests\base16_test.c" />
+    <ClCompile Include="..\..\tests\base32_test.c" />
+    <ClCompile Include="..\..\tests\base64_test.c" />
+    <ClCompile Include="..\..\tests\bcrypt_test.c" />
+    <ClCompile Include="..\..\tests\cipher_hash_test.c" />
+    <ClCompile Include="..\..\tests\common.c" />
+    <ClCompile Include="..\..\tests\deprecated_test.c" />
+    <ClCompile Include="..\..\tests\der_test.c" />
+    <ClCompile Include="..\..\tests\dh_test.c" />
+    <ClCompile Include="..\..\tests\dsa_test.c" />
+    <ClCompile Include="..\..\tests\ecc_test.c" />
+    <ClCompile Include="..\..\tests\ed25519_test.c" />
+    <ClCompile Include="..\..\tests\file_test.c" />
+    <ClCompile Include="..\..\tests\mac_test.c" />
+    <ClCompile Include="..\..\tests\misc_test.c" />
+    <ClCompile Include="..\..\tests\modes_test.c" />
+    <ClCompile Include="..\..\tests\mpi_test.c" />
+    <ClCompile Include="..\..\tests\multi_test.c" />
+    <ClCompile Include="..\..\tests\no_null_termination_check_test.c" />
+    <ClCompile Include="..\..\tests\no_prng.c" />
+    <ClCompile Include="..\..\tests\padding_test.c" />
+    <ClCompile Include="..\..\tests\pem_test.c" />
+    <ClCompile Include="..\..\tests\pk_oid_test.c" />
+    <ClCompile Include="..\..\tests\pkcs_1_eme_test.c" />
+    <ClCompile Include="..\..\tests\pkcs_1_emsa_test.c" />
+    <ClCompile Include="..\..\tests\pkcs_1_oaep_test.c" />
+    <ClCompile Include="..\..\tests\pkcs_1_pss_test.c" />
+    <ClCompile Include="..\..\tests\pkcs_1_test.c" />
+    <ClCompile Include="..\..\tests\prng_test.c" />
+    <ClCompile Include="..\..\tests\rotate_test.c" />
+    <ClCompile Include="..\..\tests\rsa_test.c" />
+    <ClCompile Include="..\..\tests\scrypt_test.c" />
+    <ClCompile Include="..\..\tests\ssh_test.c" />
+    <ClCompile Include="..\..\tests\store_test.c" />
+    <ClCompile Include="..\..\tests\test.c" />
+    <ClCompile Include="..\..\tests\x25519_test.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
