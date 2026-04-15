@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="libtomcrypt/libtomcrypt.vcxproj" Id="1f0f3bef-5d48-4830-9a61-19eec30f3e0e" />
+</Solution>
