@@ -337,6 +337,18 @@ typedef unsigned long ltc_mp_digit;
          #define LTC_SHA256_X86
       #endif
    #endif
+   #if !defined(LTC_NO_SHA512_X86)
+      #define LTC_SHA512_X86
+   #endif
+   #if !defined(LTC_NO_SHA384_X86)
+      #define LTC_SHA384_X86
+   #endif
+   #if !defined(LTC_NO_SHA512_256_X86)
+      #define LTC_SHA512_256_X86
+   #endif
+   #if !defined(LTC_NO_SHA512_224_X86)
+      #define LTC_SHA512_224_X86
+   #endif
 #endif
 
 #if defined(__GNUC__)
@@ -400,6 +412,8 @@ typedef unsigned long ltc_mp_digit;
 #else
 #  define LTC_ATTRIBUTE(x)
 #endif
+#define LTC_SHA512_TARGET __attribute__((__target__("sse2,avx,avx2,sha512")))
+#define LTC_SHA512_TARGET
 
 #if !defined(LTC_NO_GCM_PMULL) && (defined(__aarch64__) || defined(_M_ARM64))
 #define LTC_GCM_PMULL
