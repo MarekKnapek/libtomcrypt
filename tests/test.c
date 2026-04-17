@@ -230,12 +230,31 @@ static void s_unregister_all(void)
   unregister_hash(&sha384_desc);
 #endif
 #ifdef LTC_SHA512
+  /* `register_all_hashes()` does not register
+   * - `sha512_portable_desc`
+   * - `sha512_x86_desc`
+   * so we don't have to unregister them */
+  unregister_hash(&sha512_desc);
+#endif
+#ifdef LTC_SHA384
+  /* `register_all_hashes()` does not register
+   * - `sha384_portable_desc`
+   * - `sha384_x86_desc`
+   * so we don't have to unregister them */
   unregister_hash(&sha512_desc);
 #endif
 #ifdef LTC_SHA512_224
+  /* `register_all_hashes()` does not register
+   * - `sha512_224_portable_desc`
+   * - `sha512_224_x86_desc`
+   * so we don't have to unregister them */
   unregister_hash(&sha512_224_desc);
 #endif
 #ifdef LTC_SHA512_256
+  /* `register_all_hashes()` does not register
+   * - `sha512_256_portable_desc`
+   * - `sha512_256_x86_desc`
+   * so we don't have to unregister them */
   unregister_hash(&sha512_256_desc);
 #endif
 #ifdef LTC_SHA3
