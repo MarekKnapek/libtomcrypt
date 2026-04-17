@@ -53,6 +53,12 @@ static LTC_INLINE void s_x86_cpuid(int* regs, int leaf)
     regs[3] = d;
 #endif
 }
+#endif /* LTC_S_X86_CPUID */
+#if !defined (LTC_S_X86_CPUIDEX)
+#define LTC_S_X86_CPUIDEX
+#if defined _MSC_VER
+#include <intrin.h>
+#endif
 static LTC_INLINE void s_x86_cpuidex(int* regs, int eax, int ecx)
 {
 #if defined _MSC_VER
@@ -73,7 +79,7 @@ static LTC_INLINE void s_x86_cpuidex(int* regs, int eax, int ecx)
     regs[3] = d;
 #endif
 }
-#endif /* LTC_S_X86_CPUID */
+#endif /* LTC_S_X86_CPUIDEX */
 
 static LTC_INLINE int s_sha512_x86_is_supported(void)
 {
