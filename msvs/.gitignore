@@ -1,9 +1,5 @@
 /.vs/
-/clang-Debug/
-/clang-Release/
-/MSVC-Debug/
-/MSVC-Release/
-/x64/
+/build/
 
 /test-clang-Debug-x64.txt
 /test-clang-Debug-x86.txt
