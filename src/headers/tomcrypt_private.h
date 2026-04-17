@@ -196,6 +196,18 @@ int sha224_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
 #ifdef LTC_SHA256
 int sha256_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
 #endif
+#ifdef LTC_SHA512
+int sha512_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
+#endif
+#ifdef LTC_SHA384
+int sha384_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
+#endif
+#ifdef LTC_SHA512_224
+int sha512_224_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
+#endif
+#ifdef LTC_SHA512_256
+int sha512_256_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
+#endif
 
 /* tomcrypt_mac.h */
 
