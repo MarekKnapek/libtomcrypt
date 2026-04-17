@@ -50,6 +50,9 @@ const struct ltc_cipher_descriptor aes_enc_desc =
 
 /* Code partially borrowed from https://software.intel.com/content/www/us/en/develop/articles/intel-sha-extensions.html */
 #if defined(LTC_AES_NI)
+#if defined _MSC_VER
+#include <intrin.h>
+#endif
 static LTC_INLINE int s_aesni_is_supported(void)
 {
    static int initialized = 0, is_supported = 0;
