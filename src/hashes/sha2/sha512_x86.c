@@ -18,7 +18,7 @@
 #include <intrin.h>
 #endif
 #include <emmintrin.h> /* SSE2 _mm_set_epi64x */
-#include <immintrin.h> /* AVX _mm256_castsi128_si256 _mm256_castsi256_si128 _mm256_load_si256 _mm256_store_si256 */
+#include <immintrin.h> /* AVX _mm256_castsi128_si256 _mm256_castsi256_si128 _mm256_load_si256 _mm256_loadu_si256 _mm256_store_si256 */
 #include <immintrin.h> /* AVX2 _mm256_add_epi64 _mm256_blend_epi32 _mm256_permute4x64_epi64 _mm256_shuffle_epi8 */
 #include <immintrin.h> /* SHA512 _mm256_sha512msg1_epi64 _mm256_sha512msg2_epi64 _mm256_sha512rnds2_epi64 */
 #if defined(__GNUC__)
@@ -115,8 +115,6 @@ static int LTC_SHA512_TARGET s_sha512_x86_compress(hash_state * md, const unsign
     __m256i msg_c;
     __m256i msg_d;
 
-    LTC_ARGCHK(((ltc_uintptr)(buf)) % 32 == 0);
-
     reverse = _mm256_permute4x64_epi64(_mm256_castsi128_si256(_mm_set_epi64x(0x08090a0b0c0d0e0full, 0x0001020304050607ull)), ltc_permute_epi64_k(0x1, 0x0, 0x1, 0x0));
     state_a = _mm256_load_si256(((__m256i const*)(&md->sha512.state[0])));
     state_b = _mm256_load_si256(((__m256i const*)(&md->sha512.state[4])));
@@ -130,28 +128,28 @@ static int LTC_SHA512_TARGET s_sha512_x86_compress(hash_state * md, const unsign
     old_a = state_a;
     old_b = state_b;
     tmp_a = _mm256_load_si256(((__m256i const*)(&K[0 * (256 / (sizeof(ulong64) * CHAR_BIT))])));
-    msg_a = _mm256_load_si256(((__m256i const*)(&buf[0 * (256 / CHAR_BIT)])));
+    msg_a = _mm256_loadu_si256(((__m256i const*)(&buf[0 * (256 / CHAR_BIT)])));
     msg_a = _mm256_shuffle_epi8(msg_a, reverse);
     tmp_a = _mm256_add_epi64(tmp_a, msg_a);
     state_a = _mm256_sha512rnds2_epi64(state_a, state_b, _mm256_castsi256_si128(tmp_a));
     tmp_a = _mm256_permute4x64_epi64(tmp_a, ltc_permute_epi64_k(any, any, 0x3, 0x2));
     state_b = _mm256_sha512rnds2_epi64(state_b, state_a, _mm256_castsi256_si128(tmp_a));
     tmp_a = _mm256_load_si256(((__m256i const*)(&K[1 * (256 / (sizeof(ulong64) * CHAR_BIT))])));
-    msg_b = _mm256_load_si256(((__m256i const*)(&buf[1 * (256 / CHAR_BIT)])));
+    msg_b = _mm256_loadu_si256(((__m256i const*)(&buf[1 * (256 / CHAR_BIT)])));
     msg_b = _mm256_shuffle_epi8(msg_b, reverse);
     tmp_a = _mm256_add_epi64(tmp_a, msg_b);
     state_a = _mm256_sha512rnds2_epi64(state_a, state_b, _mm256_castsi256_si128(tmp_a));
     tmp_a = _mm256_permute4x64_epi64(tmp_a, ltc_permute_epi64_k(any, any, 0x3, 0x2));
     state_b = _mm256_sha512rnds2_epi64(state_b, state_a, _mm256_castsi256_si128(tmp_a));
     tmp_a = _mm256_load_si256(((__m256i const*)(&K[2 * (256 / (sizeof(ulong64) * CHAR_BIT))])));
-    msg_c = _mm256_load_si256(((__m256i const*)(&buf[2 * (256 / CHAR_BIT)])));
+    msg_c = _mm256_loadu_si256(((__m256i const*)(&buf[2 * (256 / CHAR_BIT)])));
     msg_c = _mm256_shuffle_epi8(msg_c, reverse);
     tmp_a = _mm256_add_epi64(tmp_a, msg_c);
     state_a = _mm256_sha512rnds2_epi64(state_a, state_b, _mm256_castsi256_si128(tmp_a));
     tmp_a = _mm256_permute4x64_epi64(tmp_a, ltc_permute_epi64_k(any, any, 0x3, 0x2));
     state_b = _mm256_sha512rnds2_epi64(state_b, state_a, _mm256_castsi256_si128(tmp_a));
     tmp_a = _mm256_load_si256(((__m256i const*)(&K[3 * (256 / (sizeof(ulong64) * CHAR_BIT))])));
-    msg_d = _mm256_load_si256(((__m256i const*)(&buf[3 * (256 / CHAR_BIT)])));
+    msg_d = _mm256_loadu_si256(((__m256i const*)(&buf[3 * (256 / CHAR_BIT)])));
     msg_d = _mm256_shuffle_epi8(msg_d, reverse);
     tmp_a = _mm256_add_epi64(tmp_a, msg_d);
     state_a = _mm256_sha512rnds2_epi64(state_a, state_b, _mm256_castsi256_si128(tmp_a));
