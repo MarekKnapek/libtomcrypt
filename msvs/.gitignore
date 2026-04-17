@@ -5,11 +5,19 @@
 /MSVC-Release/
 /x64/
 
-/libtomcrypt-clang-Debug-x64.txt
-/libtomcrypt-clang-Debug-x86.txt
-/libtomcrypt-clang-Release-x64.txt
-/libtomcrypt-clang-Release-x86.txt
-/libtomcrypt-MSVC-Debug-x64.txt
-/libtomcrypt-MSVC-Debug-x86.txt
-/libtomcrypt-MSVC-Release-x64.txt
-/libtomcrypt-MSVC-Release-x86.txt
+/test-clang-Debug-x64.txt
+/test-clang-Debug-x86.txt
+/test-clang-Release-x64.txt
+/test-clang-Release-x86.txt
+/test-MSVC-Debug-x64.txt
+/test-MSVC-Debug-x86.txt
+/test-MSVC-Release-x64.txt
+/test-MSVC-Release-x86.txt
+/timing-clang-Debug-x64.txt
+/timing-clang-Debug-x86.txt
+/timing-clang-Release-x64.txt
+/timing-clang-Release-x86.txt
+/timing-MSVC-Debug-x64.txt
+/timing-MSVC-Debug-x86.txt
+/timing-MSVC-Release-x64.txt
+/timing-MSVC-Release-x86.txt
