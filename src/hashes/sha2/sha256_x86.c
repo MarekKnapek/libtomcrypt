@@ -18,7 +18,7 @@
 #elif defined(_MSC_VER)
 #include <intrin.h>
 #endif
-#include <emmintrin.h> /* SSE2 _mm_load_si128 _mm_loadu_si128 _mm_store_si128 _mm_set_epi64x _mm_add_epi32 _mm_shuffle_epi32 */
+#include <emmintrin.h> /* SSE2 _mm_load_si128 _mm_store_si128 _mm_set_epi64x _mm_add_epi32 _mm_shuffle_epi32 */
 #include <tmmintrin.h> /* SSSE3 _mm_alignr_epi8 _mm_shuffle_epi8 */
 #include <smmintrin.h> /* SSE4.1 _mm_blend_epi16 */
 #include <immintrin.h> /* SHA _mm_sha256msg1_epu32 _mm_sha256msg2_epu32 _mm_sha256rnds2_epu32 */
@@ -89,6 +89,8 @@ static int LTC_SHA_TARGET s_sha256_x86_compress(hash_state * md, const unsigned 
     __m128i msg_2;
     __m128i msg_3;
 
+    LTC_ARGCHK(((ltc_uintptr)(buf)) % 16 == 0);
+
     reverse = _mm_set_epi64x(0x0c0d0e0f08090a0bull, 0x0405060700010203ull);
     state_0 = _mm_load_si128(((__m128i const*)(&md->sha256.state[0])));
     state_1 = _mm_load_si128(((__m128i const*)(&md->sha256.state[4])));
@@ -99,28 +101,28 @@ static int LTC_SHA_TARGET s_sha256_x86_compress(hash_state * md, const unsigned 
 
     old_0 = state_0;
     old_1 = state_1;
-    msg_0 = _mm_loadu_si128(((__m128i const*)(&buf[0 * 16])));
+    msg_0 = _mm_load_si128(((__m128i const*)(&buf[0 * 16])));
     msg_0 = _mm_shuffle_epi8(msg_0, reverse);
     tmp = _mm_load_si128(((__m128i const*)(&K[0 * 4])));
     msg = _mm_add_epi32(msg_0, tmp);
     state_1 = _mm_sha256rnds2_epu32(state_1, state_0, msg);
     msg = _mm_shuffle_epi32(msg, k_shuffle_epi32(k_any, k_any, 0x3, 0x2));
     state_0 = _mm_sha256rnds2_epu32(state_0, state_1, msg);
-    msg_1 = _mm_loadu_si128(((__m128i const*)(&buf[1 * 16])));
+    msg_1 = _mm_load_si128(((__m128i const*)(&buf[1 * 16])));
     msg_1 = _mm_shuffle_epi8(msg_1, reverse);
     tmp = _mm_load_si128(((__m128i const*)(&K[1 * 4])));
     msg = _mm_add_epi32(msg_1, tmp);
     state_1 = _mm_sha256rnds2_epu32(state_1, state_0, msg);
     msg = _mm_shuffle_epi32(msg, k_shuffle_epi32(k_any, k_any, 0x3, 0x2));
     state_0 = _mm_sha256rnds2_epu32(state_0, state_1, msg);
-    msg_2 = _mm_loadu_si128(((__m128i const*)(&buf[2 * 16])));
+    msg_2 = _mm_load_si128(((__m128i const*)(&buf[2 * 16])));
     msg_2 = _mm_shuffle_epi8(msg_2, reverse);
     tmp = _mm_load_si128(((__m128i const*)(&K[2 * 4])));
     msg = _mm_add_epi32(msg_2, tmp);
     state_1 = _mm_sha256rnds2_epu32(state_1, state_0, msg);
     msg = _mm_shuffle_epi32(msg, k_shuffle_epi32(k_any, k_any, 0x3, 0x2));
     state_0 = _mm_sha256rnds2_epu32(state_0, state_1, msg);
-    msg_3 = _mm_loadu_si128(((__m128i const*)(&buf[3 * 16])));
+    msg_3 = _mm_load_si128(((__m128i const*)(&buf[3 * 16])));
     msg_3 = _mm_shuffle_epi8(msg_3, reverse);
     tmp = _mm_load_si128(((__m128i const*)(&K[3 * 4])));
     msg = _mm_add_epi32(msg_3, tmp);
