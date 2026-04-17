@@ -28,8 +28,8 @@ const struct ltc_hash_descriptor sha512_portable_desc =
 };
 
 /* the K array */
-#define K sha512_K
-static const ulong64 K[80] = {
+#define K sha512_k
+static const ulong64 sha512_k[80] LTC_ALIGN(32) = {
 CONST64(0x428a2f98d728ae22), CONST64(0x7137449123ef65cd),
 CONST64(0xb5c0fbcfec4d3b2f), CONST64(0xe9b5dba58189dbbc),
 CONST64(0x3956c25bf348b538), CONST64(0x59f111f1b605d019),
