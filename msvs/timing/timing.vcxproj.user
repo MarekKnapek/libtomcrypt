@@ -4,4 +4,7 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)..\..\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MSVC-Debug|x64'">
+    <LocalDebuggerCommandArgumentsHistory>cipeher_ecb serpent|cipher_ecb serpent|</LocalDebuggerCommandArgumentsHistory>
+  </PropertyGroup>
 </Project>

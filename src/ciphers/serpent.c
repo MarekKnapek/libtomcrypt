@@ -13,17 +13,23 @@
 
 #ifdef LTC_SERPENT
 
+#define serpent_block_len 16
+
 const struct ltc_cipher_descriptor serpent_desc = {
    "serpent",
    25,                  /* cipher_ID */
-   16, 32, 16, 32,      /* min_key_len, max_key_len, block_len, default_rounds */
+   16, 32, serpent_block_len, 32,      /* min_key_len, max_key_len, block_len, default_rounds */
    &serpent_setup,
    &serpent_ecb_encrypt,
    &serpent_ecb_decrypt,
    &serpent_test,
    &serpent_done,
    &serpent_keysize,
-   NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+   NULL, /*&serpent_accel_ecb_encrypt,*/
+   NULL, /*&serpent_accel_ecb_decrypt,*/
+   NULL, NULL,
+   &serpent_accel_ctr_encrypt,
+   NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
 };
 
 /* linear transformation */
@@ -617,6 +623,1198 @@ int serpent_keysize(int *keysize)
    return CRYPT_OK;
 }
 
+static LTC_INLINE void s_serpent_accel_ecb_32_bit_load_one(ulong32 *x, const unsigned char *bytes)
+{
+  *x =
+    ((ulong32)(((ulong32)(bytes[0])) << (0 * CHAR_BIT))) |
+    ((ulong32)(((ulong32)(bytes[1])) << (1 * CHAR_BIT))) |
+    ((ulong32)(((ulong32)(bytes[2])) << (2 * CHAR_BIT))) |
+    ((ulong32)(((ulong32)(bytes[3])) << (3 * CHAR_BIT))) |
+  0;
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_32_bit_store_one(const ulong32 *x, unsigned char *bytes)
+{
+  bytes[0] = ((unsigned char)(((ulong32)((*x)) >> (0 * CHAR_BIT)) & 0xff));
+  bytes[1] = ((unsigned char)(((ulong32)((*x)) >> (1 * CHAR_BIT)) & 0xff));
+  bytes[2] = ((unsigned char)(((ulong32)((*x)) >> (2 * CHAR_BIT)) & 0xff));
+  bytes[3] = ((unsigned char)(((ulong32)((*x)) >> (3 * CHAR_BIT)) & 0xff));
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_32_bit_load_four(ulong32 *pa, ulong32 *pb, ulong32 *pc, ulong32 *pd, const unsigned char *bytes)
+{
+  s_serpent_accel_ecb_32_bit_load_one(pa, &bytes[0 * sizeof(ulong32)]);
+  s_serpent_accel_ecb_32_bit_load_one(pb, &bytes[1 * sizeof(ulong32)]);
+  s_serpent_accel_ecb_32_bit_load_one(pc, &bytes[2 * sizeof(ulong32)]);
+  s_serpent_accel_ecb_32_bit_load_one(pd, &bytes[3 * sizeof(ulong32)]);
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_32_bit_store_four(const ulong32 *pa, const ulong32 *pb, const ulong32 *pc, const ulong32 *pd, unsigned char *bytes)
+{
+  s_serpent_accel_ecb_32_bit_store_one(pa, &bytes[0 * sizeof(ulong32)]);
+  s_serpent_accel_ecb_32_bit_store_one(pb, &bytes[1 * sizeof(ulong32)]);
+  s_serpent_accel_ecb_32_bit_store_one(pc, &bytes[2 * sizeof(ulong32)]);
+  s_serpent_accel_ecb_32_bit_store_one(pd, &bytes[3 * sizeof(ulong32)]);
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_32_bit(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (32 / 32)
+  #define s_apply_order_00(fnc) fnc( 0, a, b, c, d, e)
+  #define s_apply_order_01(fnc) fnc( 1, c, b, d, a, e)
+  #define s_apply_order_02(fnc) fnc( 2, e, d, a, c, b)
+  #define s_apply_order_03(fnc) fnc( 3, b, d, e, c, a)
+  #define s_apply_order_04(fnc) fnc( 4, c, a, d, b, e)
+  #define s_apply_order_05(fnc) fnc( 5, a, d, b, e, c)
+  #define s_apply_order_06(fnc) fnc( 6, c, a, d, e, b)
+  #define s_apply_order_07(fnc) fnc( 7, d, b, a, e, c)
+  #define s_apply_order_08(fnc) fnc( 8, c, a, e, d, b)
+  #define s_apply_order_09(fnc) fnc( 9, e, a, d, c, b)
+  #define s_apply_order_10(fnc) fnc(10, b, d, c, e, a)
+  #define s_apply_order_11(fnc) fnc(11, a, d, b, e, c)
+  #define s_apply_order_12(fnc) fnc(12, e, c, d, a, b)
+  #define s_apply_order_13(fnc) fnc(13, c, d, a, b, e)
+  #define s_apply_order_14(fnc) fnc(14, e, c, d, b, a)
+  #define s_apply_order_15(fnc) fnc(15, d, a, c, b, e)
+  #define s_apply_order_16(fnc) fnc(16, e, c, b, d, a)
+  #define s_apply_order_17(fnc) fnc(17, b, c, d, e, a)
+  #define s_apply_order_18(fnc) fnc(18, a, d, e, b, c)
+  #define s_apply_order_19(fnc) fnc(19, c, d, a, b, e)
+  #define s_apply_order_20(fnc) fnc(20, b, e, d, c, a)
+  #define s_apply_order_21(fnc) fnc(21, e, d, c, a, b)
+  #define s_apply_order_22(fnc) fnc(22, b, e, d, a, c)
+  #define s_apply_order_23(fnc) fnc(23, d, c, e, a, b)
+  #define s_apply_order_24(fnc) fnc(24, b, e, a, d, c)
+  #define s_apply_order_25(fnc) fnc(25, a, e, d, b, c)
+  #define s_apply_order_26(fnc) fnc(26, c, d, b, a, e)
+  #define s_apply_order_27(fnc) fnc(27, e, d, c, a, b)
+  #define s_apply_order_28(fnc) fnc(28, a, b, d, e, c)
+  #define s_apply_order_29(fnc) fnc(29, b, d, e, c, a)
+  #define s_apply_order_30(fnc) fnc(30, a, b, d, c, e)
+  #define s_apply_order_31(fnc) fnc(31, d, e, b, c, a)
+  #define s_apply_order_32(fnc) fnc(32, a, b, c, d, e)
+  #define s_apply_key(i, ra, rb, rc, rd, re) { \
+    ra ^= k[i * 4 + 0]; rb ^= k[i * 4 + 1]; \
+    rc ^= k[i * 4 + 2]; rd ^= k[i * 4 + 3]; \
+  }
+  #define s_apply_ln_tr_key(i, ra, rb, rc, rd, re) { \
+    ra = ROL(ra, 13);                                           \
+    rc = ROL(rc, 3);    rb ^= ra;           re = ra << 3;       \
+    rd ^= rc;           rb ^= rc;                               \
+    rb = ROL(rb, 1);    rd ^= re;                               \
+    rd = ROL(rd, 7);    re = rb;                                \
+    ra ^= rb;           re <<= 7;           rc ^= rd;           \
+    ra ^= rd;           rc ^= re;           rd ^= k[i * 4 + 3]; \
+    rb ^= k[i * 4 + 1]; ra = ROL(ra, 5);    rc = ROL(rc, 22);   \
+    ra ^= k[i * 4 + 0]; rc ^= k[i * 4 + 2];                     \
+  }
+  #define s_enc_0(i, ra, rb, rc, rd, re) { \
+    re  = rd; \
+    rd |= ra; ra ^= re; re ^= rc; \
+    re =~ re; rd ^= rb; rb &= ra; \
+    rb ^= re; rc ^= ra; ra ^= rd; \
+    re |= ra; ra ^= rc; rc &= rb; \
+    rd ^= rc; rb =~ rb; rc ^= re; \
+    rb ^= rc; \
+  }
+  #define s_enc_1(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rb ^= ra; ra ^= rd; rd =~ rd; \
+    re &= rb; ra |= rb; rd ^= rc; \
+    ra ^= rd; rb ^= rd; rd ^= re; \
+    rb |= re; re ^= rc; rc &= ra; \
+    rc ^= rb; rb |= ra; ra =~ ra; \
+    ra ^= rc; re ^= rb; \
+  }
+  #define s_enc_2(i, ra, rb, rc, rd, re) { \
+    rd =~ rd; \
+    rb ^= ra; re  = ra; ra &= rc; \
+    ra ^= rd; rd |= re; rc ^= rb; \
+    rd ^= rb; rb &= ra; ra ^= rc; \
+    rc &= rd; rd |= rb; ra =~ ra; \
+    rd ^= ra; re ^= ra; ra ^= rc; \
+    rb |= rc; \
+  }
+  #define s_enc_3(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rb ^= rd; rd |= ra; re &= ra; \
+    ra ^= rc; rc ^= rb; rb &= rd; \
+    rc ^= rd; ra |= re; re ^= rd; \
+    rb ^= ra; ra &= rd; rd &= re; \
+    rd ^= rc; re |= rb; rc &= rb; \
+    re ^= rd; ra ^= rd; rd ^= rc; \
+  }
+  #define s_enc_4(i, ra, rb, rc, rd, re) { \
+    re  = rd; \
+    rd &= ra; ra ^= re; \
+    rd ^= rc; rc |= re; ra ^= rb; \
+    re ^= rd; rc |= ra; \
+    rc ^= rb; rb &= ra; \
+    rb ^= re; re &= rc; rc ^= rd; \
+    re ^= ra; rd |= rb; rb =~ rb; \
+    rd ^= ra; \
+  }
+  #define s_enc_5(i, ra, rb, rc, rd, re) { \
+    re  = rb; rb |= ra; \
+    rc ^= rb; rd =~ rd; re ^= ra; \
+    ra ^= rc; rb &= re; re |= rd; \
+    re ^= ra; ra &= rd; rb ^= rd; \
+    rd ^= rc; ra ^= rb; rc &= re; \
+    rb ^= rc; rc &= ra; \
+    rd ^= rc; \
+  }
+  #define s_enc_6(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rd ^= ra; rb ^= rc; rc ^= ra; \
+    ra &= rd; rb |= rd; re =~ re; \
+    ra ^= rb; rb ^= rc; \
+    rd ^= re; re ^= ra; rc &= ra; \
+    re ^= rb; rc ^= rd; rd &= rb; \
+    rd ^= ra; rb ^= rc; \
+  }
+  #define s_enc_7(i, ra, rb, rc, rd, re) { \
+    rb =~ rb; \
+    re  = rb; ra =~ ra; rb &= rc; \
+    rb ^= rd; rd |= re; re ^= rc; \
+    rc ^= rd; rd ^= ra; ra |= rb; \
+    rc &= ra; ra ^= re; re ^= rd; \
+    rd &= ra; re ^= rb; \
+    rc ^= re; rd ^= rb; re |= ra; \
+    re ^= rb; \
+  }
+
+  const unsigned char *in;
+  unsigned char *out;
+  const ulong32* k;
+  unsigned long iblock;
+  ulong32 a, b, c, d, e;
+
+  LTC_ARGCHK(pt);
+  LTC_ARGCHK(ct);
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  in = pt;
+  out = ct;
+  k = &skey->serpent.k[0];
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    s_serpent_accel_ecb_32_bit_load_four(&a, &b, &c, &d, in);
+    s_apply_order_00(s_apply_key);
+    s_apply_order_00(s_enc_0); s_apply_order_01(s_apply_ln_tr_key);
+    s_apply_order_01(s_enc_1); s_apply_order_02(s_apply_ln_tr_key);
+    s_apply_order_02(s_enc_2); s_apply_order_03(s_apply_ln_tr_key);
+    s_apply_order_03(s_enc_3); s_apply_order_04(s_apply_ln_tr_key);
+    s_apply_order_04(s_enc_4); s_apply_order_05(s_apply_ln_tr_key);
+    s_apply_order_05(s_enc_5); s_apply_order_06(s_apply_ln_tr_key);
+    s_apply_order_06(s_enc_6); s_apply_order_07(s_apply_ln_tr_key);
+    s_apply_order_07(s_enc_7); s_apply_order_08(s_apply_ln_tr_key);
+    s_apply_order_08(s_enc_0); s_apply_order_09(s_apply_ln_tr_key);
+    s_apply_order_09(s_enc_1); s_apply_order_10(s_apply_ln_tr_key);
+    s_apply_order_10(s_enc_2); s_apply_order_11(s_apply_ln_tr_key);
+    s_apply_order_11(s_enc_3); s_apply_order_12(s_apply_ln_tr_key);
+    s_apply_order_12(s_enc_4); s_apply_order_13(s_apply_ln_tr_key);
+    s_apply_order_13(s_enc_5); s_apply_order_14(s_apply_ln_tr_key);
+    s_apply_order_14(s_enc_6); s_apply_order_15(s_apply_ln_tr_key);
+    s_apply_order_15(s_enc_7); s_apply_order_16(s_apply_ln_tr_key);
+    s_apply_order_16(s_enc_0); s_apply_order_17(s_apply_ln_tr_key);
+    s_apply_order_17(s_enc_1); s_apply_order_18(s_apply_ln_tr_key);
+    s_apply_order_18(s_enc_2); s_apply_order_19(s_apply_ln_tr_key);
+    s_apply_order_19(s_enc_3); s_apply_order_20(s_apply_ln_tr_key);
+    s_apply_order_20(s_enc_4); s_apply_order_21(s_apply_ln_tr_key);
+    s_apply_order_21(s_enc_5); s_apply_order_22(s_apply_ln_tr_key);
+    s_apply_order_22(s_enc_6); s_apply_order_23(s_apply_ln_tr_key);
+    s_apply_order_23(s_enc_7); s_apply_order_24(s_apply_ln_tr_key);
+    s_apply_order_24(s_enc_0); s_apply_order_25(s_apply_ln_tr_key);
+    s_apply_order_25(s_enc_1); s_apply_order_26(s_apply_ln_tr_key);
+    s_apply_order_26(s_enc_2); s_apply_order_27(s_apply_ln_tr_key);
+    s_apply_order_27(s_enc_3); s_apply_order_28(s_apply_ln_tr_key);
+    s_apply_order_28(s_enc_4); s_apply_order_29(s_apply_ln_tr_key);
+    s_apply_order_29(s_enc_5); s_apply_order_30(s_apply_ln_tr_key);
+    s_apply_order_30(s_enc_6); s_apply_order_31(s_apply_ln_tr_key);
+    s_apply_order_31(s_enc_7); s_apply_order_32(s_apply_key);
+    s_serpent_accel_ecb_32_bit_store_four(&a, &b, &c, &d, out);
+    in += blocks_at_a_time * serpent_block_len;
+    out += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+  #undef s_apply_order_00
+  #undef s_apply_order_01
+  #undef s_apply_order_02
+  #undef s_apply_order_03
+  #undef s_apply_order_04
+  #undef s_apply_order_05
+  #undef s_apply_order_06
+  #undef s_apply_order_07
+  #undef s_apply_order_08
+  #undef s_apply_order_09
+  #undef s_apply_order_10
+  #undef s_apply_order_11
+  #undef s_apply_order_12
+  #undef s_apply_order_13
+  #undef s_apply_order_14
+  #undef s_apply_order_15
+  #undef s_apply_order_16
+  #undef s_apply_order_17
+  #undef s_apply_order_18
+  #undef s_apply_order_19
+  #undef s_apply_order_20
+  #undef s_apply_order_21
+  #undef s_apply_order_22
+  #undef s_apply_order_23
+  #undef s_apply_order_24
+  #undef s_apply_order_25
+  #undef s_apply_order_26
+  #undef s_apply_order_27
+  #undef s_apply_order_28
+  #undef s_apply_order_29
+  #undef s_apply_order_30
+  #undef s_apply_order_31
+  #undef s_apply_order_32
+  #undef s_apply_key
+  #undef s_apply_ln_tr_key
+  #undef s_enc_0
+  #undef s_enc_1
+  #undef s_enc_2
+  #undef s_enc_3
+  #undef s_enc_4
+  #undef s_enc_5
+  #undef s_enc_6
+  #undef s_enc_7
+}
+
+#define LTC_SERPENT_ACCEL_64_BIT /* todo move somewhere else */
+#if 0
+#define LTC_SERPENT_ACCEL_128_BIT_X86_SSE2 /* todo move somewhere else */
+#define LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 /* todo move somewhere else */
+#define LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 /* todo move somewhere else */
+#endif
+
+#if defined LTC_SERPENT_ACCEL_64_BIT
+
+static LTC_INLINE void s_serpent_accel_ecb_64_bit_load_one(ulong64 *x, const unsigned char *bytes)
+{
+  *x =
+    ((ulong64)(((ulong64)(bytes[0])) << (0 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[1])) << (1 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[2])) << (2 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[3])) << (3 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[4])) << (4 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[5])) << (5 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[6])) << (6 * CHAR_BIT))) |
+    ((ulong64)(((ulong64)(bytes[7])) << (7 * CHAR_BIT))) |
+  0;
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_64_bit_store_one(const ulong64 *x, unsigned char *bytes)
+{
+  bytes[0] = ((unsigned char)(((ulong64)((*x)) >> (0 * CHAR_BIT)) & 0xff));
+  bytes[1] = ((unsigned char)(((ulong64)((*x)) >> (1 * CHAR_BIT)) & 0xff));
+  bytes[2] = ((unsigned char)(((ulong64)((*x)) >> (2 * CHAR_BIT)) & 0xff));
+  bytes[3] = ((unsigned char)(((ulong64)((*x)) >> (3 * CHAR_BIT)) & 0xff));
+  bytes[4] = ((unsigned char)(((ulong64)((*x)) >> (4 * CHAR_BIT)) & 0xff));
+  bytes[5] = ((unsigned char)(((ulong64)((*x)) >> (5 * CHAR_BIT)) & 0xff));
+  bytes[6] = ((unsigned char)(((ulong64)((*x)) >> (6 * CHAR_BIT)) & 0xff));
+  bytes[7] = ((unsigned char)(((ulong64)((*x)) >> (7 * CHAR_BIT)) & 0xff));
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_64_bit_load_four(ulong64 *pa, ulong64 *pb, ulong64 *pc, ulong64 *pd, const unsigned char *bytes)
+{
+  ulong64 ta, tb, tc, td;
+  ulong64 ra, rb, rc, rd;
+  ulong64 xa, xb;
+
+  s_serpent_accel_ecb_64_bit_load_one(&ta, &bytes[0 * sizeof(ulong64)]);
+  s_serpent_accel_ecb_64_bit_load_one(&tb, &bytes[1 * sizeof(ulong64)]);
+  s_serpent_accel_ecb_64_bit_load_one(&tc, &bytes[2 * sizeof(ulong64)]);
+  s_serpent_accel_ecb_64_bit_load_one(&td, &bytes[3 * sizeof(ulong64)]);
+  xa = ta << 32;
+  xa >>= 32;
+  xb = tc << 32;
+  ra = xa | xb;
+  xa = ta >> 32;
+  xb = tc >> 32;
+  xb <<= 32;
+  rb = xa | xb;
+  xa = tb << 32;
+  xa >>= 32;
+  xb = td << 32;
+  rc = xa | xb;
+  xa = tb >> 32;
+  xb = td >> 32;
+  xb <<= 32;
+  rd = xa | xb;
+  *pa = ra;
+  *pb = rb;
+  *pc = rc;
+  *pd = rd;
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_64_bit_store_four(const ulong64 *pa, const ulong64 *pb, const ulong64 *pc, const ulong64 *pd, unsigned char *bytes)
+{
+  ulong64 ta, tb, tc, td;
+  ulong64 ra, rb, rc, rd;
+  ulong64 xa, xb;
+
+  ta = *pa;
+  tb = *pb;
+  tc = *pc;
+  td = *pd;
+  xa = ta << 32;
+  xa >>= 32;
+  xb = tb << 32;
+  ra = xa | xb;
+  xa = tc << 32;
+  xa >>= 32;
+  xb = td << 32;
+  rb = xa | xb;
+  xa = ta >> 32;
+  xb = tb >> 32;
+  xb <<= 32;
+  rc = xa | xb;
+  xa = tc >> 32;
+  xb = td >> 32;
+  xb <<= 32;
+  rd = xa | xb;
+  s_serpent_accel_ecb_64_bit_store_one(&ra, &bytes[0 * sizeof(ulong64)]);
+  s_serpent_accel_ecb_64_bit_store_one(&rb, &bytes[1 * sizeof(ulong64)]);
+  s_serpent_accel_ecb_64_bit_store_one(&rc, &bytes[2 * sizeof(ulong64)]);
+  s_serpent_accel_ecb_64_bit_store_one(&rd, &bytes[3 * sizeof(ulong64)]);
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_64_bit(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (64 / 32)
+  #define s_apply_order_00(fnc) fnc( 0, a, b, c, d, e)
+  #define s_apply_order_01(fnc) fnc( 1, c, b, d, a, e)
+  #define s_apply_order_02(fnc) fnc( 2, e, d, a, c, b)
+  #define s_apply_order_03(fnc) fnc( 3, b, d, e, c, a)
+  #define s_apply_order_04(fnc) fnc( 4, c, a, d, b, e)
+  #define s_apply_order_05(fnc) fnc( 5, a, d, b, e, c)
+  #define s_apply_order_06(fnc) fnc( 6, c, a, d, e, b)
+  #define s_apply_order_07(fnc) fnc( 7, d, b, a, e, c)
+  #define s_apply_order_08(fnc) fnc( 8, c, a, e, d, b)
+  #define s_apply_order_09(fnc) fnc( 9, e, a, d, c, b)
+  #define s_apply_order_10(fnc) fnc(10, b, d, c, e, a)
+  #define s_apply_order_11(fnc) fnc(11, a, d, b, e, c)
+  #define s_apply_order_12(fnc) fnc(12, e, c, d, a, b)
+  #define s_apply_order_13(fnc) fnc(13, c, d, a, b, e)
+  #define s_apply_order_14(fnc) fnc(14, e, c, d, b, a)
+  #define s_apply_order_15(fnc) fnc(15, d, a, c, b, e)
+  #define s_apply_order_16(fnc) fnc(16, e, c, b, d, a)
+  #define s_apply_order_17(fnc) fnc(17, b, c, d, e, a)
+  #define s_apply_order_18(fnc) fnc(18, a, d, e, b, c)
+  #define s_apply_order_19(fnc) fnc(19, c, d, a, b, e)
+  #define s_apply_order_20(fnc) fnc(20, b, e, d, c, a)
+  #define s_apply_order_21(fnc) fnc(21, e, d, c, a, b)
+  #define s_apply_order_22(fnc) fnc(22, b, e, d, a, c)
+  #define s_apply_order_23(fnc) fnc(23, d, c, e, a, b)
+  #define s_apply_order_24(fnc) fnc(24, b, e, a, d, c)
+  #define s_apply_order_25(fnc) fnc(25, a, e, d, b, c)
+  #define s_apply_order_26(fnc) fnc(26, c, d, b, a, e)
+  #define s_apply_order_27(fnc) fnc(27, e, d, c, a, b)
+  #define s_apply_order_28(fnc) fnc(28, a, b, d, e, c)
+  #define s_apply_order_29(fnc) fnc(29, b, d, e, c, a)
+  #define s_apply_order_30(fnc) fnc(30, a, b, d, c, e)
+  #define s_apply_order_31(fnc) fnc(31, d, e, b, c, a)
+  #define s_apply_order_32(fnc) fnc(32, a, b, c, d, e)
+  #define s_do_split_general(x, i) ((ulong32)((x) >> ((i) * 32)))
+  #define s_do_split_lo(x) s_do_split_general(x, 0)
+  #define s_do_split_hi(x) s_do_split_general(x, 1)
+  #define s_do_join(lo, hi) ((((ulong64)(hi)) << 32) | ((ulong64)(lo)))
+  #define s_do_broadcast(x) s_do_join(x, x)
+  #define s_do_rol(x, i) s_do_join( \
+    ROL(s_do_split_lo(x), i), \
+    ROL(s_do_split_hi(x), i))
+  #define s_do_shl(x, i) s_do_join( \
+    (s_do_split_lo(x) << i), \
+    (s_do_split_hi(x) << i))
+  #define s_apply_key(i, ra, rb, rc, rd, re) { \
+    ra ^= s_do_broadcast(k[i * 4 + 0]); rb ^= s_do_broadcast(k[i * 4 + 1]); \
+    rc ^= s_do_broadcast(k[i * 4 + 2]); rd ^= s_do_broadcast(k[i * 4 + 3]); \
+  }
+  #define s_apply_ln_tr_key(i, ra, rb, rc, rd, re) { \
+    ra = s_do_rol(ra, 13);                                                                        \
+    rc = s_do_rol(rc, 3);               rb ^= ra;             re = s_do_shl(ra, 3);               \
+    rd ^= rc;                           rb ^= rc;                                                 \
+    rb = s_do_rol(rb, 1);               rd ^= re;                                                 \
+    rd = s_do_rol(rd, 7);               re = rb;                                                  \
+    ra ^= rb;                           re = s_do_shl(re, 7); rc ^= rd;                           \
+    ra ^= rd;                           rc ^= re;             rd ^= s_do_broadcast(k[i * 4 + 3]); \
+    rb ^= s_do_broadcast(k[i * 4 + 1]); ra = s_do_rol(ra, 5); rc = s_do_rol(rc, 22);              \
+    ra ^= s_do_broadcast(k[i * 4 + 0]); rc ^= s_do_broadcast(k[i * 4 + 2]);                       \
+  }
+  #define s_enc_0(i, ra, rb, rc, rd, re) { \
+    re  = rd; \
+    rd |= ra; ra ^= re; re ^= rc; \
+    re =~ re; rd ^= rb; rb &= ra; \
+    rb ^= re; rc ^= ra; ra ^= rd; \
+    re |= ra; ra ^= rc; rc &= rb; \
+    rd ^= rc; rb =~ rb; rc ^= re; \
+    rb ^= rc; \
+  }
+  #define s_enc_1(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rb ^= ra; ra ^= rd; rd =~ rd; \
+    re &= rb; ra |= rb; rd ^= rc; \
+    ra ^= rd; rb ^= rd; rd ^= re; \
+    rb |= re; re ^= rc; rc &= ra; \
+    rc ^= rb; rb |= ra; ra =~ ra; \
+    ra ^= rc; re ^= rb; \
+  }
+  #define s_enc_2(i, ra, rb, rc, rd, re) { \
+    rd =~ rd; \
+    rb ^= ra; re  = ra; ra &= rc; \
+    ra ^= rd; rd |= re; rc ^= rb; \
+    rd ^= rb; rb &= ra; ra ^= rc; \
+    rc &= rd; rd |= rb; ra =~ ra; \
+    rd ^= ra; re ^= ra; ra ^= rc; \
+    rb |= rc; \
+  }
+  #define s_enc_3(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rb ^= rd; rd |= ra; re &= ra; \
+    ra ^= rc; rc ^= rb; rb &= rd; \
+    rc ^= rd; ra |= re; re ^= rd; \
+    rb ^= ra; ra &= rd; rd &= re; \
+    rd ^= rc; re |= rb; rc &= rb; \
+    re ^= rd; ra ^= rd; rd ^= rc; \
+  }
+  #define s_enc_4(i, ra, rb, rc, rd, re) { \
+    re  = rd; \
+    rd &= ra; ra ^= re; \
+    rd ^= rc; rc |= re; ra ^= rb; \
+    re ^= rd; rc |= ra; \
+    rc ^= rb; rb &= ra; \
+    rb ^= re; re &= rc; rc ^= rd; \
+    re ^= ra; rd |= rb; rb =~ rb; \
+    rd ^= ra; \
+  }
+  #define s_enc_5(i, ra, rb, rc, rd, re) { \
+    re  = rb; rb |= ra; \
+    rc ^= rb; rd =~ rd; re ^= ra; \
+    ra ^= rc; rb &= re; re |= rd; \
+    re ^= ra; ra &= rd; rb ^= rd; \
+    rd ^= rc; ra ^= rb; rc &= re; \
+    rb ^= rc; rc &= ra; \
+    rd ^= rc; \
+  }
+  #define s_enc_6(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rd ^= ra; rb ^= rc; rc ^= ra; \
+    ra &= rd; rb |= rd; re =~ re; \
+    ra ^= rb; rb ^= rc; \
+    rd ^= re; re ^= ra; rc &= ra; \
+    re ^= rb; rc ^= rd; rd &= rb; \
+    rd ^= ra; rb ^= rc; \
+  }
+  #define s_enc_7(i, ra, rb, rc, rd, re) { \
+    rb =~ rb; \
+    re  = rb; ra =~ ra; rb &= rc; \
+    rb ^= rd; rd |= re; re ^= rc; \
+    rc ^= rd; rd ^= ra; ra |= rb; \
+    rc &= ra; ra ^= re; re ^= rd; \
+    rd &= ra; re ^= rb; \
+    rc ^= re; rd ^= rb; re |= ra; \
+    re ^= rb; \
+  }
+
+  const unsigned char *in;
+  unsigned char *out;
+  const ulong32* k;
+  unsigned long iblock;
+  ulong64 a, b, c, d, e;
+
+  LTC_ARGCHK(pt);
+  LTC_ARGCHK(ct);
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  in = pt;
+  out = ct;
+  k = &skey->serpent.k[0];
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    s_serpent_accel_ecb_64_bit_load_four(&a, &b, &c, &d, in);
+    s_apply_order_00(s_apply_key);
+    s_apply_order_00(s_enc_0); s_apply_order_01(s_apply_ln_tr_key);
+    s_apply_order_01(s_enc_1); s_apply_order_02(s_apply_ln_tr_key);
+    s_apply_order_02(s_enc_2); s_apply_order_03(s_apply_ln_tr_key);
+    s_apply_order_03(s_enc_3); s_apply_order_04(s_apply_ln_tr_key);
+    s_apply_order_04(s_enc_4); s_apply_order_05(s_apply_ln_tr_key);
+    s_apply_order_05(s_enc_5); s_apply_order_06(s_apply_ln_tr_key);
+    s_apply_order_06(s_enc_6); s_apply_order_07(s_apply_ln_tr_key);
+    s_apply_order_07(s_enc_7); s_apply_order_08(s_apply_ln_tr_key);
+    s_apply_order_08(s_enc_0); s_apply_order_09(s_apply_ln_tr_key);
+    s_apply_order_09(s_enc_1); s_apply_order_10(s_apply_ln_tr_key);
+    s_apply_order_10(s_enc_2); s_apply_order_11(s_apply_ln_tr_key);
+    s_apply_order_11(s_enc_3); s_apply_order_12(s_apply_ln_tr_key);
+    s_apply_order_12(s_enc_4); s_apply_order_13(s_apply_ln_tr_key);
+    s_apply_order_13(s_enc_5); s_apply_order_14(s_apply_ln_tr_key);
+    s_apply_order_14(s_enc_6); s_apply_order_15(s_apply_ln_tr_key);
+    s_apply_order_15(s_enc_7); s_apply_order_16(s_apply_ln_tr_key);
+    s_apply_order_16(s_enc_0); s_apply_order_17(s_apply_ln_tr_key);
+    s_apply_order_17(s_enc_1); s_apply_order_18(s_apply_ln_tr_key);
+    s_apply_order_18(s_enc_2); s_apply_order_19(s_apply_ln_tr_key);
+    s_apply_order_19(s_enc_3); s_apply_order_20(s_apply_ln_tr_key);
+    s_apply_order_20(s_enc_4); s_apply_order_21(s_apply_ln_tr_key);
+    s_apply_order_21(s_enc_5); s_apply_order_22(s_apply_ln_tr_key);
+    s_apply_order_22(s_enc_6); s_apply_order_23(s_apply_ln_tr_key);
+    s_apply_order_23(s_enc_7); s_apply_order_24(s_apply_ln_tr_key);
+    s_apply_order_24(s_enc_0); s_apply_order_25(s_apply_ln_tr_key);
+    s_apply_order_25(s_enc_1); s_apply_order_26(s_apply_ln_tr_key);
+    s_apply_order_26(s_enc_2); s_apply_order_27(s_apply_ln_tr_key);
+    s_apply_order_27(s_enc_3); s_apply_order_28(s_apply_ln_tr_key);
+    s_apply_order_28(s_enc_4); s_apply_order_29(s_apply_ln_tr_key);
+    s_apply_order_29(s_enc_5); s_apply_order_30(s_apply_ln_tr_key);
+    s_apply_order_30(s_enc_6); s_apply_order_31(s_apply_ln_tr_key);
+    s_apply_order_31(s_enc_7); s_apply_order_32(s_apply_key);
+    s_serpent_accel_ecb_64_bit_store_four(&a, &b, &c, &d, out);
+    in += blocks_at_a_time * serpent_block_len;
+    out += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+  #undef s_apply_order_00
+  #undef s_apply_order_01
+  #undef s_apply_order_02
+  #undef s_apply_order_03
+  #undef s_apply_order_04
+  #undef s_apply_order_05
+  #undef s_apply_order_06
+  #undef s_apply_order_07
+  #undef s_apply_order_08
+  #undef s_apply_order_09
+  #undef s_apply_order_10
+  #undef s_apply_order_11
+  #undef s_apply_order_12
+  #undef s_apply_order_13
+  #undef s_apply_order_14
+  #undef s_apply_order_15
+  #undef s_apply_order_16
+  #undef s_apply_order_17
+  #undef s_apply_order_18
+  #undef s_apply_order_19
+  #undef s_apply_order_20
+  #undef s_apply_order_21
+  #undef s_apply_order_22
+  #undef s_apply_order_23
+  #undef s_apply_order_24
+  #undef s_apply_order_25
+  #undef s_apply_order_26
+  #undef s_apply_order_27
+  #undef s_apply_order_28
+  #undef s_apply_order_29
+  #undef s_apply_order_30
+  #undef s_apply_order_31
+  #undef s_apply_order_32
+  #undef s_do_split_general
+  #undef s_do_split_lo
+  #undef s_do_split_hi
+  #undef s_do_join
+  #undef s_do_broadcast
+  #undef s_do_rol
+  #undef s_do_shl
+  #undef s_apply_key
+  #undef s_apply_ln_tr_key
+  #undef s_enc_0
+  #undef s_enc_1
+  #undef s_enc_2
+  #undef s_enc_3
+  #undef s_enc_4
+  #undef s_enc_5
+  #undef s_enc_6
+  #undef s_enc_7
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_decrypt_64_bit(const unsigned char *ct, unsigned char *pt, unsigned long blocks, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (64 / 32)
+  #define s_apply_order_00(fnc) fnc( 0, a, b, c, d, e)
+  #define s_apply_order_01(fnc) fnc( 1, c, b, d, a, e)
+  #define s_apply_order_02(fnc) fnc( 2, e, d, a, c, b)
+  #define s_apply_order_03(fnc) fnc( 3, b, d, e, c, a)
+  #define s_apply_order_04(fnc) fnc( 4, c, a, d, b, e)
+  #define s_apply_order_05(fnc) fnc( 5, a, d, b, e, c)
+  #define s_apply_order_06(fnc) fnc( 6, c, a, d, e, b)
+  #define s_apply_order_07(fnc) fnc( 7, d, b, a, e, c)
+  #define s_apply_order_08(fnc) fnc( 8, c, a, e, d, b)
+  #define s_apply_order_09(fnc) fnc( 9, e, a, d, c, b)
+  #define s_apply_order_10(fnc) fnc(10, b, d, c, e, a)
+  #define s_apply_order_11(fnc) fnc(11, a, d, b, e, c)
+  #define s_apply_order_12(fnc) fnc(12, e, c, d, a, b)
+  #define s_apply_order_13(fnc) fnc(13, c, d, a, b, e)
+  #define s_apply_order_14(fnc) fnc(14, e, c, d, b, a)
+  #define s_apply_order_15(fnc) fnc(15, d, a, c, b, e)
+  #define s_apply_order_16(fnc) fnc(16, e, c, b, d, a)
+  #define s_apply_order_17(fnc) fnc(17, b, c, d, e, a)
+  #define s_apply_order_18(fnc) fnc(18, a, d, e, b, c)
+  #define s_apply_order_19(fnc) fnc(19, c, d, a, b, e)
+  #define s_apply_order_20(fnc) fnc(20, b, e, d, c, a)
+  #define s_apply_order_21(fnc) fnc(21, e, d, c, a, b)
+  #define s_apply_order_22(fnc) fnc(22, b, e, d, a, c)
+  #define s_apply_order_23(fnc) fnc(23, d, c, e, a, b)
+  #define s_apply_order_24(fnc) fnc(24, b, e, a, d, c)
+  #define s_apply_order_25(fnc) fnc(25, a, e, d, b, c)
+  #define s_apply_order_26(fnc) fnc(26, c, d, b, a, e)
+  #define s_apply_order_27(fnc) fnc(27, e, d, c, a, b)
+  #define s_apply_order_28(fnc) fnc(28, a, b, d, e, c)
+  #define s_apply_order_29(fnc) fnc(29, b, d, e, c, a)
+  #define s_apply_order_30(fnc) fnc(30, a, b, d, c, e)
+  #define s_apply_order_31(fnc) fnc(31, d, e, b, c, a)
+  #define s_apply_order_32(fnc) fnc(32, a, b, c, d, e)
+  #define s_do_split_general(x, i) ((ulong32)((x) >> ((i) * 32)))
+  #define s_do_split_lo(x) s_do_split_general(x, 0)
+  #define s_do_split_hi(x) s_do_split_general(x, 1)
+  #define s_do_join(lo, hi) ((((ulong64)(hi)) << 32) | ((ulong64)(lo)))
+  #define s_do_broadcast(x) s_do_join(x, x)
+  #define s_do_rol(x, i) s_do_join( \
+    ROL(s_do_split_lo(x), i), \
+    ROL(s_do_split_hi(x), i))
+  #define s_do_shl(x, i) s_do_join( \
+    (s_do_split_lo(x) << i), \
+    (s_do_split_hi(x) << i))
+  #define s_apply_key(i, ra, rb, rc, rd, re) { \
+    ra ^= s_do_broadcast(k[i * 4 + 0]); rb ^= s_do_broadcast(k[i * 4 + 1]); \
+    rc ^= s_do_broadcast(k[i * 4 + 2]); rd ^= s_do_broadcast(k[i * 4 + 3]); \
+  }
+  #define s_apply_ln_tr_key(i, ra, rb, rc, rd, re) { \
+    ra = s_do_rol(ra, 13);                                                                        \
+    rc = s_do_rol(rc, 3);               rb ^= ra;             re = s_do_shl(ra, 3);               \
+    rd ^= rc;                           rb ^= rc;                                                 \
+    rb = s_do_rol(rb, 1);               rd ^= re;                                                 \
+    rd = s_do_rol(rd, 7);               re = rb;                                                  \
+    ra ^= rb;                           re = s_do_shl(re, 7); rc ^= rd;                           \
+    ra ^= rd;                           rc ^= re;             rd ^= s_do_broadcast(k[i * 4 + 3]); \
+    rb ^= s_do_broadcast(k[i * 4 + 1]); ra = s_do_rol(ra, 5); rc = s_do_rol(rc, 22);              \
+    ra ^= s_do_broadcast(k[i * 4 + 0]); rc ^= s_do_broadcast(k[i * 4 + 2]);                       \
+  }
+  #define s_enc_0(i, ra, rb, rc, rd, re) { \
+    re  = rd; \
+    rd |= ra; ra ^= re; re ^= rc; \
+    re =~ re; rd ^= rb; rb &= ra; \
+    rb ^= re; rc ^= ra; ra ^= rd; \
+    re |= ra; ra ^= rc; rc &= rb; \
+    rd ^= rc; rb =~ rb; rc ^= re; \
+    rb ^= rc; \
+  }
+  #define s_enc_1(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rb ^= ra; ra ^= rd; rd =~ rd; \
+    re &= rb; ra |= rb; rd ^= rc; \
+    ra ^= rd; rb ^= rd; rd ^= re; \
+    rb |= re; re ^= rc; rc &= ra; \
+    rc ^= rb; rb |= ra; ra =~ ra; \
+    ra ^= rc; re ^= rb; \
+  }
+  #define s_enc_2(i, ra, rb, rc, rd, re) { \
+    rd =~ rd; \
+    rb ^= ra; re  = ra; ra &= rc; \
+    ra ^= rd; rd |= re; rc ^= rb; \
+    rd ^= rb; rb &= ra; ra ^= rc; \
+    rc &= rd; rd |= rb; ra =~ ra; \
+    rd ^= ra; re ^= ra; ra ^= rc; \
+    rb |= rc; \
+  }
+  #define s_enc_3(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rb ^= rd; rd |= ra; re &= ra; \
+    ra ^= rc; rc ^= rb; rb &= rd; \
+    rc ^= rd; ra |= re; re ^= rd; \
+    rb ^= ra; ra &= rd; rd &= re; \
+    rd ^= rc; re |= rb; rc &= rb; \
+    re ^= rd; ra ^= rd; rd ^= rc; \
+  }
+  #define s_enc_4(i, ra, rb, rc, rd, re) { \
+    re  = rd; \
+    rd &= ra; ra ^= re; \
+    rd ^= rc; rc |= re; ra ^= rb; \
+    re ^= rd; rc |= ra; \
+    rc ^= rb; rb &= ra; \
+    rb ^= re; re &= rc; rc ^= rd; \
+    re ^= ra; rd |= rb; rb =~ rb; \
+    rd ^= ra; \
+  }
+  #define s_enc_5(i, ra, rb, rc, rd, re) { \
+    re  = rb; rb |= ra; \
+    rc ^= rb; rd =~ rd; re ^= ra; \
+    ra ^= rc; rb &= re; re |= rd; \
+    re ^= ra; ra &= rd; rb ^= rd; \
+    rd ^= rc; ra ^= rb; rc &= re; \
+    rb ^= rc; rc &= ra; \
+    rd ^= rc; \
+  }
+  #define s_enc_6(i, ra, rb, rc, rd, re) { \
+    re  = rb; \
+    rd ^= ra; rb ^= rc; rc ^= ra; \
+    ra &= rd; rb |= rd; re =~ re; \
+    ra ^= rb; rb ^= rc; \
+    rd ^= re; re ^= ra; rc &= ra; \
+    re ^= rb; rc ^= rd; rd &= rb; \
+    rd ^= ra; rb ^= rc; \
+  }
+  #define s_enc_7(i, ra, rb, rc, rd, re) { \
+    rb =~ rb; \
+    re  = rb; ra =~ ra; rb &= rc; \
+    rb ^= rd; rd |= re; re ^= rc; \
+    rc ^= rd; rd ^= ra; ra |= rb; \
+    rc &= ra; ra ^= re; re ^= rd; \
+    rd &= ra; re ^= rb; \
+    rc ^= re; rd ^= rb; re |= ra; \
+    re ^= rb; \
+  }
+
+  const unsigned char *in;
+  unsigned char *out;
+  const ulong32* k;
+  unsigned long iblock;
+  ulong64 a, b, c, d, e;
+
+  LTC_ARGCHK(pt);
+  LTC_ARGCHK(ct);
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  in = ct;
+  out = pt;
+  k = &skey->serpent.k[0];
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    s_serpent_accel_ecb_64_bit_load_four(&a, &b, &c, &d, in);
+    s_apply_order_00(s_apply_key);
+    s_apply_order_00(s_enc_0); s_apply_order_01(s_apply_ln_tr_key);
+    s_apply_order_01(s_enc_1); s_apply_order_02(s_apply_ln_tr_key);
+    s_apply_order_02(s_enc_2); s_apply_order_03(s_apply_ln_tr_key);
+    s_apply_order_03(s_enc_3); s_apply_order_04(s_apply_ln_tr_key);
+    s_apply_order_04(s_enc_4); s_apply_order_05(s_apply_ln_tr_key);
+    s_apply_order_05(s_enc_5); s_apply_order_06(s_apply_ln_tr_key);
+    s_apply_order_06(s_enc_6); s_apply_order_07(s_apply_ln_tr_key);
+    s_apply_order_07(s_enc_7); s_apply_order_08(s_apply_ln_tr_key);
+    s_apply_order_08(s_enc_0); s_apply_order_09(s_apply_ln_tr_key);
+    s_apply_order_09(s_enc_1); s_apply_order_10(s_apply_ln_tr_key);
+    s_apply_order_10(s_enc_2); s_apply_order_11(s_apply_ln_tr_key);
+    s_apply_order_11(s_enc_3); s_apply_order_12(s_apply_ln_tr_key);
+    s_apply_order_12(s_enc_4); s_apply_order_13(s_apply_ln_tr_key);
+    s_apply_order_13(s_enc_5); s_apply_order_14(s_apply_ln_tr_key);
+    s_apply_order_14(s_enc_6); s_apply_order_15(s_apply_ln_tr_key);
+    s_apply_order_15(s_enc_7); s_apply_order_16(s_apply_ln_tr_key);
+    s_apply_order_16(s_enc_0); s_apply_order_17(s_apply_ln_tr_key);
+    s_apply_order_17(s_enc_1); s_apply_order_18(s_apply_ln_tr_key);
+    s_apply_order_18(s_enc_2); s_apply_order_19(s_apply_ln_tr_key);
+    s_apply_order_19(s_enc_3); s_apply_order_20(s_apply_ln_tr_key);
+    s_apply_order_20(s_enc_4); s_apply_order_21(s_apply_ln_tr_key);
+    s_apply_order_21(s_enc_5); s_apply_order_22(s_apply_ln_tr_key);
+    s_apply_order_22(s_enc_6); s_apply_order_23(s_apply_ln_tr_key);
+    s_apply_order_23(s_enc_7); s_apply_order_24(s_apply_ln_tr_key);
+    s_apply_order_24(s_enc_0); s_apply_order_25(s_apply_ln_tr_key);
+    s_apply_order_25(s_enc_1); s_apply_order_26(s_apply_ln_tr_key);
+    s_apply_order_26(s_enc_2); s_apply_order_27(s_apply_ln_tr_key);
+    s_apply_order_27(s_enc_3); s_apply_order_28(s_apply_ln_tr_key);
+    s_apply_order_28(s_enc_4); s_apply_order_29(s_apply_ln_tr_key);
+    s_apply_order_29(s_enc_5); s_apply_order_30(s_apply_ln_tr_key);
+    s_apply_order_30(s_enc_6); s_apply_order_31(s_apply_ln_tr_key);
+    s_apply_order_31(s_enc_7); s_apply_order_32(s_apply_key);
+    s_serpent_accel_ecb_64_bit_store_four(&a, &b, &c, &d, out);
+    in += blocks_at_a_time * serpent_block_len;
+    out += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+  #undef s_apply_order_00
+  #undef s_apply_order_01
+  #undef s_apply_order_02
+  #undef s_apply_order_03
+  #undef s_apply_order_04
+  #undef s_apply_order_05
+  #undef s_apply_order_06
+  #undef s_apply_order_07
+  #undef s_apply_order_08
+  #undef s_apply_order_09
+  #undef s_apply_order_10
+  #undef s_apply_order_11
+  #undef s_apply_order_12
+  #undef s_apply_order_13
+  #undef s_apply_order_14
+  #undef s_apply_order_15
+  #undef s_apply_order_16
+  #undef s_apply_order_17
+  #undef s_apply_order_18
+  #undef s_apply_order_19
+  #undef s_apply_order_20
+  #undef s_apply_order_21
+  #undef s_apply_order_22
+  #undef s_apply_order_23
+  #undef s_apply_order_24
+  #undef s_apply_order_25
+  #undef s_apply_order_26
+  #undef s_apply_order_27
+  #undef s_apply_order_28
+  #undef s_apply_order_29
+  #undef s_apply_order_30
+  #undef s_apply_order_31
+  #undef s_apply_order_32
+  #undef s_do_split_general
+  #undef s_do_split_lo
+  #undef s_do_split_hi
+  #undef s_do_join
+  #undef s_do_broadcast
+  #undef s_do_rol
+  #undef s_do_shl
+  #undef s_apply_key
+  #undef s_apply_ln_tr_key
+  #undef s_enc_0
+  #undef s_enc_1
+  #undef s_enc_2
+  #undef s_enc_3
+  #undef s_enc_4
+  #undef s_enc_5
+  #undef s_enc_6
+  #undef s_enc_7
+}
+
+#endif
+
+#if LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_128_bit_sse2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+#endif
+
+#if LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_256_bit_x86_avx2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+#endif
+
+#if LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_512_bit_x86_avx512(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+#endif
+
+static LTC_INLINE void s_serpent_accel_ctr_increment_counter_be(unsigned char *counter)
+{
+  int i;
+  int idx;
+
+  for (i = 0; i != serpent_block_len; ++i) {
+    idx = (serpent_block_len - 1) - i;
+    ++counter[idx];
+    if (counter[idx] != 0x00) {
+      break;
+    }
+  }
+}
+
+static LTC_INLINE void s_serpent_accel_ctr_increment_counter_le(unsigned char *counter)
+{
+  int i;
+  int idx;
+
+  for (i = 0; i != serpent_block_len; ++i) {
+    idx = i;
+    ++counter[idx];
+    if (counter[idx] != 0x00) {
+      break;
+    }
+  }
+}
+
+static LTC_INLINE void s_serpent_accel_ctr_increment_counter_generic(unsigned char *counter, int mode)
+{
+    if (mode == CTR_COUNTER_LITTLE_ENDIAN) {
+      s_serpent_accel_ctr_increment_counter_le(counter);
+    } else {
+      s_serpent_accel_ctr_increment_counter_be(counter);
+    }
+}
+
+static LTC_INLINE int s_serpent_accel_ctr_encrypt_64_bit(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (64 / 32)
+
+  unsigned long iblock;
+  int i;
+  unsigned char pad[blocks_at_a_time * serpent_block_len];
+  int err;
+
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    for (i = 0; i != blocks_at_a_time; ++i) {
+      s_serpent_accel_ctr_increment_counter_generic(IV, mode);
+      XMEMCPY(&pad[i * serpent_block_len], IV, serpent_block_len);
+    }
+    if ((err = s_serpent_accel_ecb_encrypt_64_bit(&pad[0], &pad[0], blocks_at_a_time, skey)) != CRYPT_OK) {
+      return err;
+    }
+    for (i = 0; i != blocks_at_a_time * serpent_block_len; ++i) {
+      ct[i] = pt[i] ^ pad[i];
+    }
+    pt += blocks_at_a_time * serpent_block_len;
+    ct += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+}
+
+static LTC_INLINE int s_serpent_accel_ctr_encrypt_32_bit(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
+{
+  unsigned long iblock;
+  int err;
+  unsigned char pad[serpent_block_len];
+  int i;
+
+  for (iblock = 0; iblock != blocks; ++iblock) {
+    s_serpent_accel_ctr_increment_counter_generic(IV, mode);
+    if ((err = s_serpent_accel_ecb_encrypt_32_bit(IV, pad, 1, skey)) != CRYPT_OK) {
+      return err;
+    }
+    for (i = 0; i != serpent_block_len; ++i) {
+      ct[i] = pt[i] ^ pad[i];
+    }
+    pt += serpent_block_len;
+    ct += serpent_block_len;
+  }
+  return CRYPT_OK;
+}
+
+int serpent_accel_ecb_encrypt(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  const unsigned char *in;
+  unsigned char *out;
+  unsigned long rem;
+  unsigned long n;
+  int err;
+
+  in = pt;
+  out = ct;
+  rem = blocks;
+  while (rem != 0) {
+    #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+    if (rem >= (512 / 32) && ((ltc_uintptr)(in)) % (512 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (512 / CHAR_BIT) == 0) {
+      n = (rem / (512 / 32)) * (512 / 32);
+      err = s_serpent_accel_ecb_encrypt_avx512_512_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+    if (rem >= (256 / 32) && ((ltc_uintptr)(in)) % (256 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (256 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+      n = 256 / 32;
+      #else
+      n = (rem / (256 / 32)) * (256 / 32);
+      #endif
+      err = s_serpent_accel_ecb_encrypt_avx2_256_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+    if (rem >= (128 / 32) && ((ltc_uintptr)(in)) % (128 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (128 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+      n = 128 / 32;
+      #else
+      n = (rem / (128 / 32)) * (128 / 32);
+      #endif
+      err = s_serpent_accel_ecb_encrypt_sse2_128_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_64_BIT
+    if (rem >= (64 / 32) && ((ltc_uintptr)(in)) % (64 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (64 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+      n = 64 / 32;
+      #else
+      n = (rem / (64 / 32)) * (64 / 32);
+      #endif
+      err = s_serpent_accel_ecb_encrypt_64_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    {
+      #if defined LTC_SERPENT_ACCEL_64_BIT
+      n = 32 / 32;
+      #else
+      n = rem;
+      #endif
+      err = s_serpent_accel_ecb_encrypt_32_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    }
+  }
+  return CRYPT_OK;
+}
+
+int serpent_accel_ecb_decrypt(const unsigned char *ct, unsigned char *pt, unsigned long blocks, const symmetric_key *skey)
+{
+  const unsigned char *in;
+  unsigned char *out;
+  unsigned long rem;
+  unsigned long n;
+  int err;
+  unsigned long i;
+
+  in = ct;
+  out = pt;
+  rem = blocks;
+  while (rem != 0) {
+    #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+    if (rem >= (512 / 32) && ((ltc_uintptr)(in)) % (512 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (512 / CHAR_BIT) == 0) {
+      n = (rem / (512 / 32)) * (512 / 32);
+      err = s_serpent_accel_ecb_decrypt_avx512_512_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+    if (rem >= (256 / 32) && ((ltc_uintptr)(in)) % (256 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (256 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+      n = 256 / 32;
+      #else
+      n = (rem / (256 / 32)) * (256 / 32);
+      #endif
+      err = s_serpent_accel_ecb_decrypt_avx2_256_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+    if (rem >= (128 / 32) && ((ltc_uintptr)(in)) % (128 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (128 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+      n = 128 / 32;
+      #else
+      n = (rem / (128 / 32)) * (128 / 32);
+      #endif
+      err = s_serpent_accel_ecb_decrypt_sse2_128_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_64_BIT
+    if (rem >= (64 / 32) && ((ltc_uintptr)(in)) % (64 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (64 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+      n = 64 / 32;
+      #else
+      n = (rem / (64 / 32)) * (64 / 32);
+      #endif
+      err = s_serpent_accel_ecb_decrypt_64_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    {
+      #if defined LTC_SERPENT_ACCEL_64_BIT
+      n = 32 / 32;
+      #else
+      n = rem;
+      #endif
+      for (i = 0; i != n; ++i) {
+        err = serpent_ecb_decrypt(in, out, skey); if (err != CRYPT_OK) { return err; }
+        out += n * serpent_block_len;
+        in += n * serpent_block_len;
+      }
+      rem -= n;
+    }
+  }
+  return CRYPT_OK;
+}
+
+int serpent_accel_ctr_encrypt(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
+{
+  const unsigned char *in;
+  unsigned char *out;
+  unsigned long rem;
+  unsigned long n;
+  int err;
+
+  in = pt;
+  out = ct;
+  rem = blocks;
+  while (rem != 0) {
+    #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+    if (rem >= (512 / 32) && ((ltc_uintptr)(in)) % (512 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (512 / CHAR_BIT) == 0) {
+      n = (rem / (512 / 32)) * (512 / 32);
+      err = s_serpent_accel_ctr_encrypt_avx512_512_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+    if (rem >= (256 / 32) && ((ltc_uintptr)(in)) % (256 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (256 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+      n = 256 / 32;
+      #else
+      n = (rem / (256 / 32)) * (256 / 32);
+      #endif
+      err = s_serpent_accel_ctr_encrypt_avx2_256_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+    if (rem >= (128 / 32) && ((ltc_uintptr)(in)) % (128 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (128 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+      n = 128 / 32;
+      #else
+      n = (rem / (128 / 32)) * (128 / 32);
+      #endif
+      err = s_serpent_accel_ctr_encrypt_sse2_128_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    #if defined LTC_SERPENT_ACCEL_64_BIT
+    if (rem >= (64 / 32) && ((ltc_uintptr)(in)) % (64 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (64 / CHAR_BIT) == 0) {
+      #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+      n = 64 / 32;
+      #else
+      n = (rem / (64 / 32)) * (64 / 32);
+      #endif
+      err = s_serpent_accel_ctr_encrypt_64_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    } else
+    #endif
+    {
+      #if defined LTC_SERPENT_ACCEL_64_BIT
+      n = 32 / 32;
+      #else
+      n = rem;
+      #endif
+      err = s_serpent_accel_ctr_encrypt_32_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      out += n * serpent_block_len;
+      in += n * serpent_block_len;
+      rem -= n;
+    }
+  }
+  return CRYPT_OK;
+}
+
 int serpent_test(void)
 {
 #ifndef LTC_TEST
@@ -755,5 +1953,6 @@ int serpent_test(void)
 #undef s_lk
 #undef s_sk
 #undef s_setup_key
+#undef serpent_block_len
 
 #endif

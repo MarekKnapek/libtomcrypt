@@ -9,7 +9,7 @@
 
 #ifdef LTC_CTR_MODE
 
-int ctr_test(void)
+static LTC_INLINE int s_ctr_test_1(void)
 {
 #ifdef LTC_NO_TEST
    return CRYPT_NOP;
@@ -67,7 +67,97 @@ int ctr_test(void)
 #endif
 }
 
+static LTC_INLINE int s_ctr_test_2(void)
+{
+#ifdef LTC_NO_TEST
+   return CRYPT_NOP;
+#else
+  #define LTC_ALIGN_BUF2(buf, align) ((void*)(((((ltc_uintptr)(buf)) + ((align) - 1)) / (align)) * (align)))
+  #define buf_cap (4 * 1024)
+  #define buf_alg (1 * 1024)
+  #define buf_len (buf_cap - buf_alg)
+
+  unsigned char *pt;
+  unsigned char pt_storage[buf_cap];
+  unsigned char *ct;
+  unsigned char ct_storage[buf_cap];
+  unsigned char *out;
+  unsigned char out_storage[buf_cap];
+  int idx;
+  int n;
+  int i;
+  unsigned char iv[MAXBLOCKSIZE];
+  unsigned char key[4 * MAXBLOCKSIZE]; /* todo guesstimate */
+  int block_len;
+  int err;
+  symmetric_CTR ctr;
+
+  pt = (unsigned char*)LTC_ALIGN_BUF2(pt_storage, buf_alg);
+  ct = (unsigned char*)LTC_ALIGN_BUF2(ct_storage, buf_alg);
+  out = (unsigned char*)LTC_ALIGN_BUF2(out_storage, buf_alg);
+  idx = 0;
+  for(;;) {
+    if (cipher_is_valid(idx) != CRYPT_OK) {
+      break;
+    }
+    n = buf_len;
+    for (i = 0; i != n; ++i) {
+      pt[i] = rand() & 0xff;
+    }
+    n = buf_len;
+    for (i = 0; i != n; ++i) {
+      ct[i] = rand() & 0xff;
+    }
+    n = buf_len;
+    for (i = 0; i != n; ++i) {
+      out[i] = rand() & 0xff;
+    }
+    n = LTC_ARRAY_SIZE(iv);
+    for (i = 0; i != n; ++i) {
+      iv[i] = rand() & 0xff;
+    }
+    n = LTC_ARRAY_SIZE(key);
+    for (i = 0; i != n; ++i) {
+      key[i] = rand() & 0xff;
+    }
+    block_len = cipher_descriptor[idx].block_length;
+    LTC_ARGCHK(block_len >= 2);
+    LTC_ARGCHK(block_len % 2 == 0);
+    LTC_ARGCHK((int)LTC_ARRAY_SIZE(key) >= cipher_descriptor[idx].max_key_length);
+    LTC_ARGCHK(buf_len % block_len == 0);
+
+    if ((err = ctr_start(idx, iv, key, cipher_descriptor[idx].max_key_length, 0, CTR_COUNTER_BIG_ENDIAN | LTC_CTR_RFC3686, &ctr)) != CRYPT_OK) { return err; }
+    n = buf_len / block_len;
+    for (i = 0; i != n; ++i) {
+      if ((err = ctr_encrypt(pt + i * block_len + (block_len / 2) * 0, ct + i * block_len + (block_len / 2) * 0, block_len / 2, &ctr)) != CRYPT_OK) { return err; }
+      if ((err = ctr_encrypt(pt + i * block_len + (block_len / 2) * 1, ct + i * block_len + (block_len / 2) * 1, block_len / 2, &ctr)) != CRYPT_OK) { return err; }
+    }
+    if ((err = ctr_done(&ctr)) != CRYPT_OK) { return err; }
+
+    if ((err = ctr_start(idx, iv, key, cipher_descriptor[idx].max_key_length, 0, CTR_COUNTER_BIG_ENDIAN | LTC_CTR_RFC3686, &ctr)) != CRYPT_OK) { return err; }
+    if ((err = ctr_encrypt(pt, out, buf_len, &ctr)) != CRYPT_OK) { return err; }
+    if ((err = ctr_done(&ctr)) != CRYPT_OK) { return err; }
+
+    if (ltc_compare_testvector(out, buf_len, ct, buf_len, "CTR", idx)) { return CRYPT_FAIL_TESTVECTOR; }
+    ++idx;
+  }
+  return CRYPT_OK;
+
+  #undef LTC_ALIGN_BUF2
+  #undef buf_cap
+  #undef buf_alg
+  #undef buf_len
 #endif
+}
 
 
+int ctr_test(void)
+{
+  int err;
 
+  err = s_ctr_test_1(); if (err != CRYPT_OK){ return err; }
+  err = s_ctr_test_2(); if (err != CRYPT_OK){ return err; }
+  return CRYPT_OK;
+}
+
+#endif
