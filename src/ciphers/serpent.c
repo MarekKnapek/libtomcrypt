@@ -15,6 +15,23 @@
 
 #define serpent_block_len 16
 
+#define LTC_SERPENT_ACCEL_64_BIT /* todo move somewhere else */
+#define LTC_SERPENT_ACCEL_128_BIT_X86_SSE2 /* todo move somewhere else */
+#if 0
+#define LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 /* todo move somewhere else */
+#define LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 /* todo move somewhere else */
+#endif
+#if \
+  defined LTC_SERPENT_ACCEL_64_BIT || \
+  defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2 || \
+  defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 || \
+  defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 || \
+  0
+#define LTC_SERPENT_ACCEL 1
+#else
+#define LTC_SERPENT_ACCEL 0
+#endif
+
 const struct ltc_cipher_descriptor serpent_desc = {
    "serpent",
    25,                  /* cipher_ID */
@@ -28,7 +45,11 @@ const struct ltc_cipher_descriptor serpent_desc = {
    NULL, /*&serpent_accel_ecb_encrypt,*/
    NULL, /*&serpent_accel_ecb_decrypt,*/
    NULL, NULL,
+   #if LTC_SERPENT_ACCEL
    &serpent_accel_ctr_encrypt,
+   #else
+   NULL,
+   #endif
    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
 };
 
@@ -883,13 +904,6 @@ static LTC_INLINE int s_serpent_accel_ecb_encrypt_32_bit(const unsigned char *pt
   #undef s_enc_7
 }
 
-#define LTC_SERPENT_ACCEL_64_BIT /* todo move somewhere else */
-#define LTC_SERPENT_ACCEL_128_BIT_X86_SSE2 /* todo move somewhere else */
-#if 0
-#define LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 /* todo move somewhere else */
-#define LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 /* todo move somewhere else */
-#endif
-
 #if defined LTC_SERPENT_ACCEL_64_BIT
 
 static LTC_INLINE void s_serpent_accel_ecb_64_bit_load_one(ulong64 *x, const unsigned char *bytes)
@@ -1541,17 +1555,17 @@ static LTC_INLINE int s_serpent_accel_ctr_encrypt_64_bit(const unsigned char *pt
 
 #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
 
-#include <emmintrin.h> /* SSE2 _mm_and_si128 _mm_cmpeq_epi32 _mm_load_si128 _mm_or_si128 _mm_set1_epi32 _mm_slli_epi32 _mm_srli_epi32 _mm_store_si128 _mm_unpackhi_epi32 _mm_unpackhi_epi64 _mm_unpacklo_epi32 _mm_unpacklo_epi64 _mm_xor_si128 */
+#include <emmintrin.h> /* SSE2 __m128i _mm_and_si128 _mm_cmpeq_epi32 _mm_loadu_si128 _mm_or_si128 _mm_set1_epi32 _mm_slli_epi32 _mm_srli_epi32 _mm_storeu_si128 _mm_unpackhi_epi32 _mm_unpackhi_epi64 _mm_unpacklo_epi32 _mm_unpacklo_epi64 _mm_xor_si128 */
 
 #if defined _MSC_VER
 #pragma intrinsic(_mm_and_si128)
 #pragma intrinsic(_mm_cmpeq_epi32)
-#pragma intrinsic(_mm_load_si128)
+#pragma intrinsic(_mm_loadu_si128)
 #pragma intrinsic(_mm_or_si128)
 #pragma intrinsic(_mm_set1_epi32)
 #pragma intrinsic(_mm_slli_epi32)
 #pragma intrinsic(_mm_srli_epi32)
-#pragma intrinsic(_mm_store_si128)
+#pragma intrinsic(_mm_storeu_si128)
 #pragma intrinsic(_mm_unpackhi_epi32)
 #pragma intrinsic(_mm_unpackhi_epi64)
 #pragma intrinsic(_mm_unpacklo_epi32)
@@ -1698,101 +1712,101 @@ static LTC_INLINE int s_serpent_accel_ecb_encrypt_128_bit_sse2(const unsigned ch
   #define s_apply_order_31(fnc) fnc(31, d, e, b, c, a)
   #define s_apply_order_32(fnc) fnc(32, a, b, c, d, e)
   #define s_do_broadcast(x) _mm_set1_epi32(*((const int *)(&(x))))
-  #define s_do_xor2(a, b) a = _mm_xor_si128(a, b)
-  #define s_do_and2(a, b) a = _mm_and_si128(a, b)
-  #define s_do_or2(a, b) a = _mm_or_si128(a, b)
-  #define s_do_not2(a, b) a = _mm_xor_si128(b, _mm_cmpeq_epi32(b, b))
+  #define s_do_xor(a, b) a = _mm_xor_si128(a, b)
+  #define s_do_and(a, b) a = _mm_and_si128(a, b)
+  #define s_do_or(a, b) a = _mm_or_si128(a, b)
+  #define s_do_not(a, b) a = _mm_xor_si128(b, _mm_cmpeq_epi32(b, b))
   #define s_do_assign(a, b) a = b
   #define s_do_rol(x, i) x = _mm_xor_si128(_mm_slli_epi32(x, i), _mm_srli_epi32(x, 32 - i))
   #define s_do_shl(a, b, c) a = _mm_slli_epi32(b, c)
-  #define s_apply_key(i, ra, rb, rc, rd, re) { \
-    s_do_xor2(ra, s_do_broadcast(k[i * 4 + 0])); s_do_xor2(rb, s_do_broadcast(k[i * 4 + 1])); \
-    s_do_xor2(rc, s_do_broadcast(k[i * 4 + 2])); s_do_xor2(rd, s_do_broadcast(k[i * 4 + 3])); \
+  #define s_apply_key(i, ra, rb, rc, rd, re) {                                              \
+    s_do_xor(ra, s_do_broadcast(k[i * 4 + 0])); s_do_xor(rb, s_do_broadcast(k[i * 4 + 1])); \
+    s_do_xor(rc, s_do_broadcast(k[i * 4 + 2])); s_do_xor(rd, s_do_broadcast(k[i * 4 + 3])); \
   }
-  #define s_apply_ln_tr_key(i, ra, rb, rc, rd, re) { \
-    s_do_rol(ra, 13);                                                                                                                       \
-    s_do_rol(rc, 3);                             s_do_xor2(rb, ra);                           s_do_shl(re, ra, 3);                          \
-    s_do_xor2(rd, rc);                           s_do_xor2(rb, rc);                                                                         \
-    s_do_rol(rb, 1);                             s_do_xor2(rd, re);                                                                         \
-    s_do_rol(rd, 7);                             s_do_assign(re, rb);                                                                       \
-    s_do_xor2(ra, rb);                           s_do_shl(re, re, 7);                         s_do_xor2(rc, rd);                            \
-    s_do_xor2(ra, rd);                           s_do_xor2(rc, re);                           s_do_xor2(rd, s_do_broadcast(k[i * 4 + 3]));  \
-    s_do_xor2(rb, s_do_broadcast(k[i * 4 + 1])); s_do_rol(ra, 5);                             s_do_rol(rc, 22);                             \
-    s_do_xor2(ra, s_do_broadcast(k[i * 4 + 0])); s_do_xor2(rc, s_do_broadcast(k[i * 4 + 2]));                                               \
+  #define s_apply_ln_tr_key(i, ra, rb, rc, rd, re) {                                                                                    \
+    s_do_rol(ra, 13);                                                                                                                   \
+    s_do_rol(rc, 3);                            s_do_xor(rb, ra);                           s_do_shl(re, ra, 3);                        \
+    s_do_xor(rd, rc);                           s_do_xor(rb, rc);                                                                       \
+    s_do_rol(rb, 1);                            s_do_xor(rd, re);                                                                       \
+    s_do_rol(rd, 7);                            s_do_assign(re, rb);                                                                    \
+    s_do_xor(ra, rb);                           s_do_shl(re, re, 7);                        s_do_xor(rc, rd);                           \
+    s_do_xor(ra, rd);                           s_do_xor(rc, re);                           s_do_xor(rd, s_do_broadcast(k[i * 4 + 3])); \
+    s_do_xor(rb, s_do_broadcast(k[i * 4 + 1])); s_do_rol(ra, 5);                            s_do_rol(rc, 22);                           \
+    s_do_xor(ra, s_do_broadcast(k[i * 4 + 0])); s_do_xor(rc, s_do_broadcast(k[i * 4 + 2]));                                             \
   }
-  #define s_enc_0(i, ra, rb, rc, rd, re) { \
-    s_do_assign(re, rd); \
-    s_do_or2(rd, ra); s_do_xor2(ra, re); s_do_xor2(re, rc); \
-    s_do_not2(re, re); s_do_xor2(rd, rb); s_do_and2(rb, ra); \
-    s_do_xor2(rb, re); s_do_xor2(rc, ra); s_do_xor2(ra, rd); \
-    s_do_or2(re, ra); s_do_xor2(ra, rc); s_do_and2(rc, rb); \
-    s_do_xor2(rd, rc); s_do_not2(rb, rb); s_do_xor2(rc, re); \
-    s_do_xor2(rb, rc); \
+  #define s_enc_0(i, ra, rb, rc, rd, re) {                   \
+    s_do_assign(re, rd);                                     \
+    s_do_or(rd, ra);     s_do_xor(ra, re); s_do_xor(re, rc); \
+    s_do_not(re, re);    s_do_xor(rd, rb); s_do_and(rb, ra); \
+    s_do_xor(rb, re);    s_do_xor(rc, ra); s_do_xor(ra, rd); \
+    s_do_or(re, ra);     s_do_xor(ra, rc); s_do_and(rc, rb); \
+    s_do_xor(rd, rc);    s_do_not(rb, rb); s_do_xor(rc, re); \
+    s_do_xor(rb, rc);                                        \
   }
-  #define s_enc_1(i, ra, rb, rc, rd, re) { \
-    s_do_assign(re, rb); \
-    s_do_xor2(rb, ra); s_do_xor2(ra, rd); s_do_not2(rd, rd); \
-    s_do_and2(re, rb); s_do_or2(ra, rb); s_do_xor2(rd, rc); \
-    s_do_xor2(ra, rd); s_do_xor2(rb, rd); s_do_xor2(rd, re); \
-    s_do_or2(rb, re); s_do_xor2(re, rc); s_do_and2(rc, ra); \
-    s_do_xor2(rc, rb); s_do_or2(rb, ra); s_do_not2(ra, ra); \
-    s_do_xor2(ra, rc); s_do_xor2(re, rb); \
+  #define s_enc_1(i, ra, rb, rc, rd, re) {                   \
+    s_do_assign(re, rb);                                     \
+    s_do_xor(rb, ra);    s_do_xor(ra, rd); s_do_not(rd, rd); \
+    s_do_and(re, rb);    s_do_or(ra, rb);  s_do_xor(rd, rc); \
+    s_do_xor(ra, rd);    s_do_xor(rb, rd); s_do_xor(rd, re); \
+    s_do_or(rb, re);     s_do_xor(re, rc); s_do_and(rc, ra); \
+    s_do_xor(rc, rb);    s_do_or(rb, ra);  s_do_not(ra, ra); \
+    s_do_xor(ra, rc);    s_do_xor(re, rb);                   \
   }
-  #define s_enc_2(i, ra, rb, rc, rd, re) { \
-    s_do_not2(rd, rd); \
-    s_do_xor2(rb, ra); s_do_assign(re, ra); s_do_and2(ra, rc); \
-    s_do_xor2(ra, rd); s_do_or2(rd, re); s_do_xor2(rc, rb); \
-    s_do_xor2(rd, rb); s_do_and2(rb, ra); s_do_xor2(ra, rc); \
-    s_do_and2(rc, rd); s_do_or2(rd, rb); s_do_not2(ra, ra); \
-    s_do_xor2(rd, ra); s_do_xor2(re, ra); s_do_xor2(ra, rc); \
-    s_do_or2(rb, rc); \
+  #define s_enc_2(i, ra, rb, rc, rd, re) {                   \
+    s_do_not(rd, rd);                                        \
+    s_do_xor(rb, ra); s_do_assign(re, ra); s_do_and(ra, rc); \
+    s_do_xor(ra, rd); s_do_or(rd, re);     s_do_xor(rc, rb); \
+    s_do_xor(rd, rb); s_do_and(rb, ra);    s_do_xor(ra, rc); \
+    s_do_and(rc, rd); s_do_or(rd, rb);     s_do_not(ra, ra); \
+    s_do_xor(rd, ra); s_do_xor(re, ra);    s_do_xor(ra, rc); \
+    s_do_or(rb, rc);                                         \
   }
-  #define s_enc_3(i, ra, rb, rc, rd, re) { \
-    s_do_assign(re, rb); \
-    s_do_xor2(rb, rd); s_do_or2(rd, ra); s_do_and2(re, ra); \
-    s_do_xor2(ra, rc); s_do_xor2(rc, rb); s_do_and2(rb, rd); \
-    s_do_xor2(rc, rd); s_do_or2(ra, re); s_do_xor2(re, rd); \
-    s_do_xor2(rb, ra); s_do_and2(ra, rd); s_do_and2(rd, re); \
-    s_do_xor2(rd, rc); s_do_or2(re, rb); s_do_and2(rc, rb); \
-    s_do_xor2(re, rd); s_do_xor2(ra, rd); s_do_xor2(rd, rc); \
+  #define s_enc_3(i, ra, rb, rc, rd, re) {                   \
+    s_do_assign(re, rb);                                     \
+    s_do_xor(rb, rd);    s_do_or(rd, ra);  s_do_and(re, ra); \
+    s_do_xor(ra, rc);    s_do_xor(rc, rb); s_do_and(rb, rd); \
+    s_do_xor(rc, rd);    s_do_or(ra, re);  s_do_xor(re, rd); \
+    s_do_xor(rb, ra);    s_do_and(ra, rd); s_do_and(rd, re); \
+    s_do_xor(rd, rc);    s_do_or(re, rb);  s_do_and(rc, rb); \
+    s_do_xor(re, rd);    s_do_xor(ra, rd); s_do_xor(rd, rc); \
   }
-  #define s_enc_4(i, ra, rb, rc, rd, re) { \
-    s_do_assign(re, rd); \
-    s_do_and2(rd, ra); s_do_xor2(ra, re); \
-    s_do_xor2(rd, rc); s_do_or2(rc, re); s_do_xor2(ra, rb); \
-    s_do_xor2(re, rd); s_do_or2(rc, ra); \
-    s_do_xor2(rc, rb); s_do_and2(rb, ra); \
-    s_do_xor2(rb, re); s_do_and2(re, rc); s_do_xor2(rc, rd); \
-    s_do_xor2(re, ra); s_do_or2(rd, rb); s_do_not2(rb, rb); \
-    s_do_xor2(rd, ra); \
+  #define s_enc_4(i, ra, rb, rc, rd, re) {                   \
+    s_do_assign(re, rd);                                     \
+    s_do_and(rd, ra);    s_do_xor(ra, re);                   \
+    s_do_xor(rd, rc);    s_do_or(rc, re);  s_do_xor(ra, rb); \
+    s_do_xor(re, rd);    s_do_or(rc, ra);                    \
+    s_do_xor(rc, rb);    s_do_and(rb, ra);                   \
+    s_do_xor(rb, re);    s_do_and(re, rc); s_do_xor(rc, rd); \
+    s_do_xor(re, ra);    s_do_or(rd, rb);  s_do_not(rb, rb); \
+    s_do_xor(rd, ra);                                        \
   }
-  #define s_enc_5(i, ra, rb, rc, rd, re) { \
-    s_do_assign(re, rb); s_do_or2(rb, ra); \
-    s_do_xor2(rc, rb); s_do_not2(rd, rd); s_do_xor2(re, ra); \
-    s_do_xor2(ra, rc); s_do_and2(rb, re); s_do_or2(re, rd); \
-    s_do_xor2(re, ra); s_do_and2(ra, rd); s_do_xor2(rb, rd); \
-    s_do_xor2(rd, rc); s_do_xor2(ra, rb); s_do_and2(rc, re); \
-    s_do_xor2(rb, rc); s_do_and2(rc, ra); \
-    s_do_xor2(rd, rc); \
+  #define s_enc_5(i, ra, rb, rc, rd, re) {                   \
+    s_do_assign(re, rb); s_do_or(rb, ra);                    \
+    s_do_xor(rc, rb);    s_do_not(rd, rd); s_do_xor(re, ra); \
+    s_do_xor(ra, rc);    s_do_and(rb, re); s_do_or(re, rd);  \
+    s_do_xor(re, ra);    s_do_and(ra, rd); s_do_xor(rb, rd); \
+    s_do_xor(rd, rc);    s_do_xor(ra, rb); s_do_and(rc, re); \
+    s_do_xor(rb, rc);    s_do_and(rc, ra);                   \
+    s_do_xor(rd, rc);                                        \
   }
-  #define s_enc_6(i, ra, rb, rc, rd, re) { \
-    s_do_assign(re, rb); \
-    s_do_xor2(rd, ra); s_do_xor2(rb, rc); s_do_xor2(rc, ra); \
-    s_do_and2(ra, rd); s_do_or2(rb, rd); s_do_not2(re, re); \
-    s_do_xor2(ra, rb); s_do_xor2(rb, rc); \
-    s_do_xor2(rd, re); s_do_xor2(re, ra); s_do_and2(rc, ra); \
-    s_do_xor2(re, rb); s_do_xor2(rc, rd); s_do_and2(rd, rb); \
-    s_do_xor2(rd, ra); s_do_xor2(rb, rc); \
+  #define s_enc_6(i, ra, rb, rc, rd, re) {                   \
+    s_do_assign(re, rb);                                     \
+    s_do_xor(rd, ra);    s_do_xor(rb, rc); s_do_xor(rc, ra); \
+    s_do_and(ra, rd);    s_do_or(rb, rd);  s_do_not(re, re); \
+    s_do_xor(ra, rb);    s_do_xor(rb, rc);                   \
+    s_do_xor(rd, re);    s_do_xor(re, ra); s_do_and(rc, ra); \
+    s_do_xor(re, rb);    s_do_xor(rc, rd); s_do_and(rd, rb); \
+    s_do_xor(rd, ra);    s_do_xor(rb, rc);                   \
   }
-  #define s_enc_7(i, ra, rb, rc, rd, re) { \
-    s_do_not2(rb, rb); \
-    s_do_assign(re, rb); s_do_not2(ra, ra); s_do_and2(rb, rc); \
-    s_do_xor2(rb, rd); s_do_or2(rd, re); s_do_xor2(re, rc); \
-    s_do_xor2(rc, rd); s_do_xor2(rd, ra); s_do_or2(ra, rb); \
-    s_do_and2(rc, ra); s_do_xor2(ra, re); s_do_xor2(re, rd); \
-    s_do_and2(rd, ra); s_do_xor2(re, rb); \
-    s_do_xor2(rc, re); s_do_xor2(rd, rb); s_do_or2(re, ra); \
-    s_do_xor2(re, rb); \
+  #define s_enc_7(i, ra, rb, rc, rd, re) {                   \
+    s_do_not(rb, rb);                                        \
+    s_do_assign(re, rb); s_do_not(ra, ra); s_do_and(rb, rc); \
+    s_do_xor(rb, rd);    s_do_or(rd, re);  s_do_xor(re, rc); \
+    s_do_xor(rc, rd);    s_do_xor(rd, ra); s_do_or(ra, rb);  \
+    s_do_and(rc, ra);    s_do_xor(ra, re); s_do_xor(re, rd); \
+    s_do_and(rd, ra);    s_do_xor(re, rb);                   \
+    s_do_xor(rc, re);    s_do_xor(rd, rb); s_do_or(re, ra);  \
+    s_do_xor(re, rb);                                        \
   }
 
   const unsigned char *in;
@@ -1883,11 +1897,12 @@ static LTC_INLINE int s_serpent_accel_ecb_encrypt_128_bit_sse2(const unsigned ch
   #undef s_apply_order_30
   #undef s_apply_order_31
   #undef s_apply_order_32
-  #undef s_do_split_general
-  #undef s_do_split_lo
-  #undef s_do_split_hi
-  #undef s_do_join
   #undef s_do_broadcast
+  #undef s_do_xor
+  #undef s_do_and
+  #undef s_do_or
+  #undef s_do_not
+  #undef s_do_assign
   #undef s_do_rol
   #undef s_do_shl
   #undef s_apply_key
@@ -1956,6 +1971,8 @@ static LTC_INLINE int s_serpent_accel_ecb_encrypt_512_bit_x86_avx512(const unsig
 }
 
 #endif
+
+#if LTC_SERPENT_ACCEL
 
 static LTC_INLINE int s_serpent_accel_ctr_encrypt_32_bit(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
 {
@@ -2205,6 +2222,8 @@ int serpent_accel_ctr_encrypt(const unsigned char *pt, unsigned char *ct, unsign
   }
   return CRYPT_OK;
 }
+
+#endif
 
 int serpent_test(void)
 {
