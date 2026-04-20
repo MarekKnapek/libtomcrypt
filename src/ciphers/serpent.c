@@ -884,8 +884,8 @@ static LTC_INLINE int s_serpent_accel_ecb_encrypt_32_bit(const unsigned char *pt
 }
 
 #define LTC_SERPENT_ACCEL_64_BIT /* todo move somewhere else */
-#if 0
 #define LTC_SERPENT_ACCEL_128_BIT_X86_SSE2 /* todo move somewhere else */
+#if 0
 #define LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 /* todo move somewhere else */
 #define LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 /* todo move somewhere else */
 #endif
@@ -1470,35 +1470,6 @@ static LTC_INLINE int s_serpent_accel_ecb_decrypt_64_bit(const unsigned char *ct
   #undef s_enc_7
 }
 
-#endif
-
-#if LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
-
-static LTC_INLINE int s_serpent_accel_ecb_encrypt_128_bit_sse2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
-{
-  return CRYPT_OK;
-}
-
-#endif
-
-#if LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
-
-static LTC_INLINE int s_serpent_accel_ecb_encrypt_256_bit_x86_avx2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
-{
-  return CRYPT_OK;
-}
-
-#endif
-
-#if LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
-
-static LTC_INLINE int s_serpent_accel_ecb_encrypt_512_bit_x86_avx512(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
-{
-  return CRYPT_OK;
-}
-
-#endif
-
 static LTC_INLINE void s_serpent_accel_ctr_increment_counter_be(unsigned char *counter)
 {
   int i;
@@ -1566,6 +1537,426 @@ static LTC_INLINE int s_serpent_accel_ctr_encrypt_64_bit(const unsigned char *pt
   #undef blocks_at_a_time
 }
 
+#endif
+
+#if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
+
+#include <emmintrin.h> /* SSE2 _mm_and_si128 _mm_cmpeq_epi32 _mm_load_si128 _mm_or_si128 _mm_set1_epi32 _mm_slli_epi32 _mm_srli_epi32 _mm_store_si128 _mm_unpackhi_epi32 _mm_unpackhi_epi64 _mm_unpacklo_epi32 _mm_unpacklo_epi64 _mm_xor_si128 */
+
+#if defined _MSC_VER
+#pragma intrinsic(_mm_and_si128)
+#pragma intrinsic(_mm_cmpeq_epi32)
+#pragma intrinsic(_mm_load_si128)
+#pragma intrinsic(_mm_or_si128)
+#pragma intrinsic(_mm_set1_epi32)
+#pragma intrinsic(_mm_slli_epi32)
+#pragma intrinsic(_mm_srli_epi32)
+#pragma intrinsic(_mm_store_si128)
+#pragma intrinsic(_mm_unpackhi_epi32)
+#pragma intrinsic(_mm_unpackhi_epi64)
+#pragma intrinsic(_mm_unpacklo_epi32)
+#pragma intrinsic(_mm_unpacklo_epi64)
+#pragma intrinsic(_mm_xor_si128)
+#endif
+
+#if !defined (LTC_S_X86_CPUID)
+#define LTC_S_X86_CPUID
+#if defined _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(__cpuid)
+#endif
+static LTC_INLINE void s_x86_cpuid(int* regs, int leaf)
+{
+#if defined _MSC_VER
+   __cpuid(regs, leaf);
+#else
+    int a, b, c, d;
+
+    a = leaf;
+    b = c = d = 0;
+    asm volatile ("cpuid"
+        :"=a"(a), "=b"(b), "=c"(c), "=d"(d)
+        :"a"(a), "c"(c)
+    );
+    regs[0] = a;
+    regs[1] = b;
+    regs[2] = c;
+    regs[3] = d;
+#endif
+}
+#endif /* LTC_S_X86_CPUID */
+
+static LTC_INLINE int s_serpent_accel_128_bit_sse2_is_supported(void)
+{
+  static int initialized = 0;
+  static int supported = 0;
+
+  if(!initialized) {
+    int regs[4];
+    int sse2;
+
+    s_x86_cpuid(regs, 1);
+    sse2 = ((((unsigned int)(regs[3])) >> 26) & 1u) != 0; /* SSE2, leaf 1, edx, bit 26 */
+    supported = sse2;
+    initialized = 1;
+  }
+  return supported;
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_128_bit_sse2_load_one(__m128i *x, const unsigned char *bytes)
+{
+  *x = _mm_loadu_si128(((const __m128i*)(bytes)));
+}
+
+static LTC_INLINE void s_serpent_accel_ecb_128_bit_sse2_store_one(const __m128i *x, unsigned char *bytes)
+{
+  _mm_storeu_si128(((__m128i*)(bytes)), *x);
+}
+
+static LTC_INLINE void s_serpent_accel_128_bit_sse2_load_four(__m128i *pa, __m128i *pb, __m128i *pc, __m128i *pd, const unsigned char *bytes)
+{
+  __m128i ia, ib, ic, id;
+  __m128i ta, tb, tc, td;
+  __m128i ra, rb, rc, rd;
+
+  s_serpent_accel_ecb_128_bit_sse2_load_one(&ia, &bytes[0 * sizeof(__m128i)]);
+  s_serpent_accel_ecb_128_bit_sse2_load_one(&ib, &bytes[1 * sizeof(__m128i)]);
+  s_serpent_accel_ecb_128_bit_sse2_load_one(&ic, &bytes[2 * sizeof(__m128i)]);
+  s_serpent_accel_ecb_128_bit_sse2_load_one(&id, &bytes[3 * sizeof(__m128i)]);
+  ta = _mm_unpacklo_epi32(ia, ib);
+  tb = _mm_unpacklo_epi32(ic, id);
+  tc = _mm_unpackhi_epi32(ia, ib);
+  td = _mm_unpackhi_epi32(ic, id);
+  ra = _mm_unpacklo_epi64(ta, tb);
+  rb = _mm_unpackhi_epi64(ta, tb);
+  rc = _mm_unpacklo_epi64(tc, td);
+  rd = _mm_unpackhi_epi64(tc, td);
+  *pa = ra;
+  *pb = rb;
+  *pc = rc;
+  *pd = rd;
+}
+
+static LTC_INLINE void s_serpent_accel_128_bit_sse2_store_four(const __m128i *pa, const __m128i *pb, const __m128i *pc, const __m128i *pd, unsigned char *bytes)
+{
+  __m128i ia, ib, ic, id;
+  __m128i ta, tb, tc, td;
+  __m128i ra, rb, rc, rd;
+
+  ia = *pa;
+  ib = *pb;
+  ic = *pc;
+  id = *pd;
+  ta = _mm_unpacklo_epi32(ia, ib);
+  tb = _mm_unpacklo_epi32(ic, id);
+  tc = _mm_unpackhi_epi32(ia, ib);
+  td = _mm_unpackhi_epi32(ic, id);
+  ra = _mm_unpacklo_epi64(ta, tb);
+  rb = _mm_unpackhi_epi64(ta, tb);
+  rc = _mm_unpacklo_epi64(tc, td);
+  rd = _mm_unpackhi_epi64(tc, td);
+  s_serpent_accel_ecb_128_bit_sse2_store_one(&ra, &bytes[0 * sizeof(__m128i)]);
+  s_serpent_accel_ecb_128_bit_sse2_store_one(&rb, &bytes[1 * sizeof(__m128i)]);
+  s_serpent_accel_ecb_128_bit_sse2_store_one(&rc, &bytes[2 * sizeof(__m128i)]);
+  s_serpent_accel_ecb_128_bit_sse2_store_one(&rd, &bytes[3 * sizeof(__m128i)]);
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_128_bit_sse2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (128 / 32)
+  #define s_apply_order_00(fnc) fnc( 0, a, b, c, d, e)
+  #define s_apply_order_01(fnc) fnc( 1, c, b, d, a, e)
+  #define s_apply_order_02(fnc) fnc( 2, e, d, a, c, b)
+  #define s_apply_order_03(fnc) fnc( 3, b, d, e, c, a)
+  #define s_apply_order_04(fnc) fnc( 4, c, a, d, b, e)
+  #define s_apply_order_05(fnc) fnc( 5, a, d, b, e, c)
+  #define s_apply_order_06(fnc) fnc( 6, c, a, d, e, b)
+  #define s_apply_order_07(fnc) fnc( 7, d, b, a, e, c)
+  #define s_apply_order_08(fnc) fnc( 8, c, a, e, d, b)
+  #define s_apply_order_09(fnc) fnc( 9, e, a, d, c, b)
+  #define s_apply_order_10(fnc) fnc(10, b, d, c, e, a)
+  #define s_apply_order_11(fnc) fnc(11, a, d, b, e, c)
+  #define s_apply_order_12(fnc) fnc(12, e, c, d, a, b)
+  #define s_apply_order_13(fnc) fnc(13, c, d, a, b, e)
+  #define s_apply_order_14(fnc) fnc(14, e, c, d, b, a)
+  #define s_apply_order_15(fnc) fnc(15, d, a, c, b, e)
+  #define s_apply_order_16(fnc) fnc(16, e, c, b, d, a)
+  #define s_apply_order_17(fnc) fnc(17, b, c, d, e, a)
+  #define s_apply_order_18(fnc) fnc(18, a, d, e, b, c)
+  #define s_apply_order_19(fnc) fnc(19, c, d, a, b, e)
+  #define s_apply_order_20(fnc) fnc(20, b, e, d, c, a)
+  #define s_apply_order_21(fnc) fnc(21, e, d, c, a, b)
+  #define s_apply_order_22(fnc) fnc(22, b, e, d, a, c)
+  #define s_apply_order_23(fnc) fnc(23, d, c, e, a, b)
+  #define s_apply_order_24(fnc) fnc(24, b, e, a, d, c)
+  #define s_apply_order_25(fnc) fnc(25, a, e, d, b, c)
+  #define s_apply_order_26(fnc) fnc(26, c, d, b, a, e)
+  #define s_apply_order_27(fnc) fnc(27, e, d, c, a, b)
+  #define s_apply_order_28(fnc) fnc(28, a, b, d, e, c)
+  #define s_apply_order_29(fnc) fnc(29, b, d, e, c, a)
+  #define s_apply_order_30(fnc) fnc(30, a, b, d, c, e)
+  #define s_apply_order_31(fnc) fnc(31, d, e, b, c, a)
+  #define s_apply_order_32(fnc) fnc(32, a, b, c, d, e)
+  #define s_do_broadcast(x) _mm_set1_epi32(*((const int *)(&(x))))
+  #define s_do_xor2(a, b) a = _mm_xor_si128(a, b)
+  #define s_do_and2(a, b) a = _mm_and_si128(a, b)
+  #define s_do_or2(a, b) a = _mm_or_si128(a, b)
+  #define s_do_not2(a, b) a = _mm_xor_si128(b, _mm_cmpeq_epi32(b, b))
+  #define s_do_assign(a, b) a = b
+  #define s_do_rol(x, i) x = _mm_xor_si128(_mm_slli_epi32(x, i), _mm_srli_epi32(x, 32 - i))
+  #define s_do_shl(a, b, c) a = _mm_slli_epi32(b, c)
+  #define s_apply_key(i, ra, rb, rc, rd, re) { \
+    s_do_xor2(ra, s_do_broadcast(k[i * 4 + 0])); s_do_xor2(rb, s_do_broadcast(k[i * 4 + 1])); \
+    s_do_xor2(rc, s_do_broadcast(k[i * 4 + 2])); s_do_xor2(rd, s_do_broadcast(k[i * 4 + 3])); \
+  }
+  #define s_apply_ln_tr_key(i, ra, rb, rc, rd, re) { \
+    s_do_rol(ra, 13);                                                                                                                       \
+    s_do_rol(rc, 3);                             s_do_xor2(rb, ra);                           s_do_shl(re, ra, 3);                          \
+    s_do_xor2(rd, rc);                           s_do_xor2(rb, rc);                                                                         \
+    s_do_rol(rb, 1);                             s_do_xor2(rd, re);                                                                         \
+    s_do_rol(rd, 7);                             s_do_assign(re, rb);                                                                       \
+    s_do_xor2(ra, rb);                           s_do_shl(re, re, 7);                         s_do_xor2(rc, rd);                            \
+    s_do_xor2(ra, rd);                           s_do_xor2(rc, re);                           s_do_xor2(rd, s_do_broadcast(k[i * 4 + 3]));  \
+    s_do_xor2(rb, s_do_broadcast(k[i * 4 + 1])); s_do_rol(ra, 5);                             s_do_rol(rc, 22);                             \
+    s_do_xor2(ra, s_do_broadcast(k[i * 4 + 0])); s_do_xor2(rc, s_do_broadcast(k[i * 4 + 2]));                                               \
+  }
+  #define s_enc_0(i, ra, rb, rc, rd, re) { \
+    s_do_assign(re, rd); \
+    s_do_or2(rd, ra); s_do_xor2(ra, re); s_do_xor2(re, rc); \
+    s_do_not2(re, re); s_do_xor2(rd, rb); s_do_and2(rb, ra); \
+    s_do_xor2(rb, re); s_do_xor2(rc, ra); s_do_xor2(ra, rd); \
+    s_do_or2(re, ra); s_do_xor2(ra, rc); s_do_and2(rc, rb); \
+    s_do_xor2(rd, rc); s_do_not2(rb, rb); s_do_xor2(rc, re); \
+    s_do_xor2(rb, rc); \
+  }
+  #define s_enc_1(i, ra, rb, rc, rd, re) { \
+    s_do_assign(re, rb); \
+    s_do_xor2(rb, ra); s_do_xor2(ra, rd); s_do_not2(rd, rd); \
+    s_do_and2(re, rb); s_do_or2(ra, rb); s_do_xor2(rd, rc); \
+    s_do_xor2(ra, rd); s_do_xor2(rb, rd); s_do_xor2(rd, re); \
+    s_do_or2(rb, re); s_do_xor2(re, rc); s_do_and2(rc, ra); \
+    s_do_xor2(rc, rb); s_do_or2(rb, ra); s_do_not2(ra, ra); \
+    s_do_xor2(ra, rc); s_do_xor2(re, rb); \
+  }
+  #define s_enc_2(i, ra, rb, rc, rd, re) { \
+    s_do_not2(rd, rd); \
+    s_do_xor2(rb, ra); s_do_assign(re, ra); s_do_and2(ra, rc); \
+    s_do_xor2(ra, rd); s_do_or2(rd, re); s_do_xor2(rc, rb); \
+    s_do_xor2(rd, rb); s_do_and2(rb, ra); s_do_xor2(ra, rc); \
+    s_do_and2(rc, rd); s_do_or2(rd, rb); s_do_not2(ra, ra); \
+    s_do_xor2(rd, ra); s_do_xor2(re, ra); s_do_xor2(ra, rc); \
+    s_do_or2(rb, rc); \
+  }
+  #define s_enc_3(i, ra, rb, rc, rd, re) { \
+    s_do_assign(re, rb); \
+    s_do_xor2(rb, rd); s_do_or2(rd, ra); s_do_and2(re, ra); \
+    s_do_xor2(ra, rc); s_do_xor2(rc, rb); s_do_and2(rb, rd); \
+    s_do_xor2(rc, rd); s_do_or2(ra, re); s_do_xor2(re, rd); \
+    s_do_xor2(rb, ra); s_do_and2(ra, rd); s_do_and2(rd, re); \
+    s_do_xor2(rd, rc); s_do_or2(re, rb); s_do_and2(rc, rb); \
+    s_do_xor2(re, rd); s_do_xor2(ra, rd); s_do_xor2(rd, rc); \
+  }
+  #define s_enc_4(i, ra, rb, rc, rd, re) { \
+    s_do_assign(re, rd); \
+    s_do_and2(rd, ra); s_do_xor2(ra, re); \
+    s_do_xor2(rd, rc); s_do_or2(rc, re); s_do_xor2(ra, rb); \
+    s_do_xor2(re, rd); s_do_or2(rc, ra); \
+    s_do_xor2(rc, rb); s_do_and2(rb, ra); \
+    s_do_xor2(rb, re); s_do_and2(re, rc); s_do_xor2(rc, rd); \
+    s_do_xor2(re, ra); s_do_or2(rd, rb); s_do_not2(rb, rb); \
+    s_do_xor2(rd, ra); \
+  }
+  #define s_enc_5(i, ra, rb, rc, rd, re) { \
+    s_do_assign(re, rb); s_do_or2(rb, ra); \
+    s_do_xor2(rc, rb); s_do_not2(rd, rd); s_do_xor2(re, ra); \
+    s_do_xor2(ra, rc); s_do_and2(rb, re); s_do_or2(re, rd); \
+    s_do_xor2(re, ra); s_do_and2(ra, rd); s_do_xor2(rb, rd); \
+    s_do_xor2(rd, rc); s_do_xor2(ra, rb); s_do_and2(rc, re); \
+    s_do_xor2(rb, rc); s_do_and2(rc, ra); \
+    s_do_xor2(rd, rc); \
+  }
+  #define s_enc_6(i, ra, rb, rc, rd, re) { \
+    s_do_assign(re, rb); \
+    s_do_xor2(rd, ra); s_do_xor2(rb, rc); s_do_xor2(rc, ra); \
+    s_do_and2(ra, rd); s_do_or2(rb, rd); s_do_not2(re, re); \
+    s_do_xor2(ra, rb); s_do_xor2(rb, rc); \
+    s_do_xor2(rd, re); s_do_xor2(re, ra); s_do_and2(rc, ra); \
+    s_do_xor2(re, rb); s_do_xor2(rc, rd); s_do_and2(rd, rb); \
+    s_do_xor2(rd, ra); s_do_xor2(rb, rc); \
+  }
+  #define s_enc_7(i, ra, rb, rc, rd, re) { \
+    s_do_not2(rb, rb); \
+    s_do_assign(re, rb); s_do_not2(ra, ra); s_do_and2(rb, rc); \
+    s_do_xor2(rb, rd); s_do_or2(rd, re); s_do_xor2(re, rc); \
+    s_do_xor2(rc, rd); s_do_xor2(rd, ra); s_do_or2(ra, rb); \
+    s_do_and2(rc, ra); s_do_xor2(ra, re); s_do_xor2(re, rd); \
+    s_do_and2(rd, ra); s_do_xor2(re, rb); \
+    s_do_xor2(rc, re); s_do_xor2(rd, rb); s_do_or2(re, ra); \
+    s_do_xor2(re, rb); \
+  }
+
+  const unsigned char *in;
+  unsigned char *out;
+  const ulong32* k;
+  unsigned long iblock;
+  __m128i a, b, c, d, e;
+
+  LTC_ARGCHK(pt);
+  LTC_ARGCHK(ct);
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  in = pt;
+  out = ct;
+  k = &skey->serpent.k[0];
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    s_serpent_accel_128_bit_sse2_load_four(&a, &b, &c, &d, in);
+    s_apply_order_00(s_apply_key);
+    s_apply_order_00(s_enc_0); s_apply_order_01(s_apply_ln_tr_key);
+    s_apply_order_01(s_enc_1); s_apply_order_02(s_apply_ln_tr_key);
+    s_apply_order_02(s_enc_2); s_apply_order_03(s_apply_ln_tr_key);
+    s_apply_order_03(s_enc_3); s_apply_order_04(s_apply_ln_tr_key);
+    s_apply_order_04(s_enc_4); s_apply_order_05(s_apply_ln_tr_key);
+    s_apply_order_05(s_enc_5); s_apply_order_06(s_apply_ln_tr_key);
+    s_apply_order_06(s_enc_6); s_apply_order_07(s_apply_ln_tr_key);
+    s_apply_order_07(s_enc_7); s_apply_order_08(s_apply_ln_tr_key);
+    s_apply_order_08(s_enc_0); s_apply_order_09(s_apply_ln_tr_key);
+    s_apply_order_09(s_enc_1); s_apply_order_10(s_apply_ln_tr_key);
+    s_apply_order_10(s_enc_2); s_apply_order_11(s_apply_ln_tr_key);
+    s_apply_order_11(s_enc_3); s_apply_order_12(s_apply_ln_tr_key);
+    s_apply_order_12(s_enc_4); s_apply_order_13(s_apply_ln_tr_key);
+    s_apply_order_13(s_enc_5); s_apply_order_14(s_apply_ln_tr_key);
+    s_apply_order_14(s_enc_6); s_apply_order_15(s_apply_ln_tr_key);
+    s_apply_order_15(s_enc_7); s_apply_order_16(s_apply_ln_tr_key);
+    s_apply_order_16(s_enc_0); s_apply_order_17(s_apply_ln_tr_key);
+    s_apply_order_17(s_enc_1); s_apply_order_18(s_apply_ln_tr_key);
+    s_apply_order_18(s_enc_2); s_apply_order_19(s_apply_ln_tr_key);
+    s_apply_order_19(s_enc_3); s_apply_order_20(s_apply_ln_tr_key);
+    s_apply_order_20(s_enc_4); s_apply_order_21(s_apply_ln_tr_key);
+    s_apply_order_21(s_enc_5); s_apply_order_22(s_apply_ln_tr_key);
+    s_apply_order_22(s_enc_6); s_apply_order_23(s_apply_ln_tr_key);
+    s_apply_order_23(s_enc_7); s_apply_order_24(s_apply_ln_tr_key);
+    s_apply_order_24(s_enc_0); s_apply_order_25(s_apply_ln_tr_key);
+    s_apply_order_25(s_enc_1); s_apply_order_26(s_apply_ln_tr_key);
+    s_apply_order_26(s_enc_2); s_apply_order_27(s_apply_ln_tr_key);
+    s_apply_order_27(s_enc_3); s_apply_order_28(s_apply_ln_tr_key);
+    s_apply_order_28(s_enc_4); s_apply_order_29(s_apply_ln_tr_key);
+    s_apply_order_29(s_enc_5); s_apply_order_30(s_apply_ln_tr_key);
+    s_apply_order_30(s_enc_6); s_apply_order_31(s_apply_ln_tr_key);
+    s_apply_order_31(s_enc_7); s_apply_order_32(s_apply_key);
+    s_serpent_accel_128_bit_sse2_store_four(&a, &b, &c, &d, out);
+    in += blocks_at_a_time * serpent_block_len;
+    out += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+  #undef s_apply_order_00
+  #undef s_apply_order_01
+  #undef s_apply_order_02
+  #undef s_apply_order_03
+  #undef s_apply_order_04
+  #undef s_apply_order_05
+  #undef s_apply_order_06
+  #undef s_apply_order_07
+  #undef s_apply_order_08
+  #undef s_apply_order_09
+  #undef s_apply_order_10
+  #undef s_apply_order_11
+  #undef s_apply_order_12
+  #undef s_apply_order_13
+  #undef s_apply_order_14
+  #undef s_apply_order_15
+  #undef s_apply_order_16
+  #undef s_apply_order_17
+  #undef s_apply_order_18
+  #undef s_apply_order_19
+  #undef s_apply_order_20
+  #undef s_apply_order_21
+  #undef s_apply_order_22
+  #undef s_apply_order_23
+  #undef s_apply_order_24
+  #undef s_apply_order_25
+  #undef s_apply_order_26
+  #undef s_apply_order_27
+  #undef s_apply_order_28
+  #undef s_apply_order_29
+  #undef s_apply_order_30
+  #undef s_apply_order_31
+  #undef s_apply_order_32
+  #undef s_do_split_general
+  #undef s_do_split_lo
+  #undef s_do_split_hi
+  #undef s_do_join
+  #undef s_do_broadcast
+  #undef s_do_rol
+  #undef s_do_shl
+  #undef s_apply_key
+  #undef s_apply_ln_tr_key
+  #undef s_enc_0
+  #undef s_enc_1
+  #undef s_enc_2
+  #undef s_enc_3
+  #undef s_enc_4
+  #undef s_enc_5
+  #undef s_enc_6
+  #undef s_enc_7
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_decrypt_128_bit_sse2(const unsigned char *ct, unsigned char *pt, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+static LTC_INLINE int s_serpent_accel_ctr_encrypt_128_bit_sse2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (128 / 32)
+
+  unsigned long iblock;
+  int i;
+  unsigned char pad[blocks_at_a_time * serpent_block_len];
+  int err;
+
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    for (i = 0; i != blocks_at_a_time; ++i) {
+      s_serpent_accel_ctr_increment_counter_generic(IV, mode);
+      XMEMCPY(&pad[i * serpent_block_len], IV, serpent_block_len);
+    }
+    if ((err = s_serpent_accel_ecb_encrypt_128_bit_sse2(&pad[0], &pad[0], blocks_at_a_time, skey)) != CRYPT_OK) {
+      return err;
+    }
+    for (i = 0; i != blocks_at_a_time * serpent_block_len; ++i) {
+      ct[i] = pt[i] ^ pad[i];
+    }
+    pt += blocks_at_a_time * serpent_block_len;
+    ct += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+}
+
+#endif
+
+#if LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_256_bit_x86_avx2(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+#endif
+
+#if LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_512_bit_x86_avx512(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+#endif
+
 static LTC_INLINE int s_serpent_accel_ctr_encrypt_32_bit(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
 {
   unsigned long iblock;
@@ -1628,7 +2019,7 @@ int serpent_accel_ecb_encrypt(const unsigned char *pt, unsigned char *ct, unsign
       #else
       n = (rem / (128 / 32)) * (128 / 32);
       #endif
-      err = s_serpent_accel_ecb_encrypt_sse2_128_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      err = s_serpent_accel_ecb_encrypt_128_bit_sse2(in, out, n, skey); if (err != CRYPT_OK) { return err; }
       out += n * serpent_block_len;
       in += n * serpent_block_len;
       rem -= n;
@@ -1704,7 +2095,7 @@ int serpent_accel_ecb_decrypt(const unsigned char *ct, unsigned char *pt, unsign
       #else
       n = (rem / (128 / 32)) * (128 / 32);
       #endif
-      err = s_serpent_accel_ecb_decrypt_sse2_128_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      err = s_serpent_accel_ecb_decrypt_128_bit_sse2(in, out, n, skey); if (err != CRYPT_OK) { return err; }
       out += n * serpent_block_len;
       in += n * serpent_block_len;
       rem -= n;
@@ -1775,20 +2166,20 @@ int serpent_accel_ctr_encrypt(const unsigned char *pt, unsigned char *ct, unsign
     } else
     #endif
     #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
-    if (rem >= (128 / 32) && ((ltc_uintptr)(in)) % (128 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (128 / CHAR_BIT) == 0) {
+    if (rem >= (128 / 32) && s_serpent_accel_128_bit_sse2_is_supported()) {
       #if defined LTC_SERPENT_ACCEL_256_BIT_X86_AVX2
       n = 128 / 32;
       #else
       n = (rem / (128 / 32)) * (128 / 32);
       #endif
-      err = s_serpent_accel_ctr_encrypt_sse2_128_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      err = s_serpent_accel_ctr_encrypt_128_bit_sse2(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
       out += n * serpent_block_len;
       in += n * serpent_block_len;
       rem -= n;
     } else
     #endif
     #if defined LTC_SERPENT_ACCEL_64_BIT
-    if (rem >= (64 / 32) && ((ltc_uintptr)(in)) % (64 / CHAR_BIT) == 0 && ((ltc_uintptr)(out)) % (64 / CHAR_BIT) == 0) {
+    if (rem >= (64 / 32)) {
       #if defined LTC_SERPENT_ACCEL_128_BIT_X86_SSE2
       n = 64 / 32;
       #else
