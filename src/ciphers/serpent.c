@@ -22,9 +22,7 @@ static LTC_INLINE int s_serpent_accel_ecb_encrypt_32_bit(const unsigned char *pt
 #define LTC_SERPENT_ACCEL_64_BIT /* todo move somewhere else */
 #define LTC_SERPENT_ACCEL_128_BIT_X86_SSE2 /* todo move somewhere else */
 #define LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 /* todo move somewhere else */
-#if 0
 #define LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 /* todo move somewhere else */
-#endif
 
 #if defined LTC_SERPENT_ACCEL_64_BIT
 #if defined _M_IX86
@@ -1864,6 +1862,251 @@ static LTC_INLINE int s_serpent_accel_ctr_encrypt_256_bit_avx2(const unsigned ch
 
 #endif /* LTC_SERPENT_ACCEL_256_BIT_X86_AVX2 */
 
+#if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
+
+#include <immintrin.h> /* AVX512F __m512i _mm512_and_si512 _mm512_load_si512 _mm512_loadu_si512 _mm512_or_si512 _mm512_set1_epi32 _mm512_set1_epi8 _mm512_slli_epi32 _mm512_srli_epi32 _mm512_storeu_si512 _mm512_unpackhi_epi32 _mm512_unpackhi_epi64 _mm512_unpacklo_epi32 _mm512_unpacklo_epi64 _mm512_xor_si512 */
+
+#if defined _MSC_VER
+#pragma intrinsic(_mm512_and_si512)
+#pragma intrinsic(_mm512_load_si512)
+#pragma intrinsic(_mm512_loadu_si512)
+#pragma intrinsic(_mm512_or_si512)
+#pragma intrinsic(_mm512_set1_epi32)
+#pragma intrinsic(_mm512_set1_epi8)
+#pragma intrinsic(_mm512_slli_epi32)
+#pragma intrinsic(_mm512_srli_epi32)
+#pragma intrinsic(_mm512_storeu_si512)
+#pragma intrinsic(_mm512_unpackhi_epi32)
+#pragma intrinsic(_mm512_unpackhi_epi64)
+#pragma intrinsic(_mm512_unpacklo_epi32)
+#pragma intrinsic(_mm512_unpacklo_epi64)
+#pragma intrinsic(_mm512_xor_si512)
+#endif
+
+#if !defined (LTC_S_X86_CPUID)
+#define LTC_S_X86_CPUID
+#if defined _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(__cpuid)
+#endif
+static LTC_INLINE void s_x86_cpuid(int* regs, int leaf)
+{
+#if defined _MSC_VER
+  __cpuid(regs, leaf);
+#else
+  int a, b, c, d;
+
+  a = leaf;
+  b = c = d = 0;
+  asm volatile ("cpuid"
+    :"=a"(a), "=b"(b), "=c"(c), "=d"(d)
+    :"a"(a), "c"(c)
+  );
+  regs[0] = a;
+  regs[1] = b;
+  regs[2] = c;
+  regs[3] = d;
+#endif
+}
+#endif /* LTC_S_X86_CPUID */
+
+static LTC_INLINE int s_serpent_accel_512_bit_avx512_is_supported(void)
+{
+  static int initialized = 0;
+  static int supported = 0;
+
+  if(!initialized) {
+    int regs[4];
+    int avx512f;
+
+    s_x86_cpuid(regs, 1);
+    if (regs[0] >= 7) {
+      s_x86_cpuid(regs, 7);
+      avx512f = ((((unsigned int)(regs[1])) >> 16) & 1u) != 0; /* AVX-512 Foundation, leaf 7, ebx, bit 16 */
+      supported = avx512f;
+    }
+    initialized = 1;
+  }
+  return supported;
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_encrypt_512_bit_avx512(const unsigned char *pt, unsigned char *ct, unsigned long blocks, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (512 / 32)
+  #define s_do_broadcast(x) _mm512_set1_epi32(*((const int *)(&(x))))
+  #define s_do_xor(a, b) a = _mm512_xor_si512(a, b)
+  #define s_do_and(a, b) a = _mm512_and_si512(a, b)
+  #define s_do_or(a, b) a = _mm512_or_si512(a, b)
+  #define s_do_not(a, b) a = _mm512_xor_si512(b, _mm512_set1_epi8(((char)(0xff))))
+  #define s_do_assign(a, b) a = b
+  #define s_do_rol(x, i) x = _mm512_xor_si512(_mm512_slli_epi32(x, i), _mm512_srli_epi32(x, 32 - i))
+  #define s_do_shl(a, b, c) a = _mm512_slli_epi32(b, c)
+  #define s_do_load_one(ptr) _mm512_loadu_si512(((const __m512i*)(ptr)))
+  #define s_do_store_one(x, ptr) _mm512_storeu_si512(((__m512i*)(ptr)), x)
+  #define s_do_load_four(ra, rb, rc, rd, bytes) {  \
+    const unsigned char* ptr;                      \
+    __m512i ia, ib, ic, id;                        \
+    __m512i ta, tb, tc, td;                        \
+    __m512i sa, sb, sc, sd;                        \
+    ptr = ((const unsigned char*)(bytes));         \
+    ia = s_do_load_one(&ptr[0 * sizeof(__m512i)]); \
+    ib = s_do_load_one(&ptr[1 * sizeof(__m512i)]); \
+    ic = s_do_load_one(&ptr[2 * sizeof(__m512i)]); \
+    id = s_do_load_one(&ptr[3 * sizeof(__m512i)]); \
+    ta = _mm512_unpacklo_epi32(ia, ib);            \
+    tb = _mm512_unpacklo_epi32(ic, id);            \
+    tc = _mm512_unpackhi_epi32(ia, ib);            \
+    td = _mm512_unpackhi_epi32(ic, id);            \
+    sa = _mm512_unpacklo_epi64(ta, tb);            \
+    sb = _mm512_unpackhi_epi64(ta, tb);            \
+    sc = _mm512_unpacklo_epi64(tc, td);            \
+    sd = _mm512_unpackhi_epi64(tc, td);            \
+    ra = sa;                                       \
+    rb = sb;                                       \
+    rc = sc;                                       \
+    rd = sd;                                       \
+  }
+  #define s_do_store_four(ra, rb, rc, rd, bytes) { \
+    __m512i ia, ib, ic, id;                        \
+    __m512i ta, tb, tc, td;                        \
+    __m512i sa, sb, sc, sd;                        \
+    unsigned char* ptr;                            \
+    ia = ra;                                       \
+    ib = rb;                                       \
+    ic = rc;                                       \
+    id = rd;                                       \
+    ptr = ((unsigned char*)(bytes));               \
+    ta = _mm512_unpacklo_epi32(ia, ib);            \
+    tb = _mm512_unpacklo_epi32(ic, id);            \
+    tc = _mm512_unpackhi_epi32(ia, ib);            \
+    td = _mm512_unpackhi_epi32(ic, id);            \
+    sa = _mm512_unpacklo_epi64(ta, tb);            \
+    sb = _mm512_unpackhi_epi64(ta, tb);            \
+    sc = _mm512_unpacklo_epi64(tc, td);            \
+    sd = _mm512_unpackhi_epi64(tc, td);            \
+    s_do_store_one(sa, &ptr[0 * sizeof(__m512i)]); \
+    s_do_store_one(sb, &ptr[1 * sizeof(__m512i)]); \
+    s_do_store_one(sc, &ptr[2 * sizeof(__m512i)]); \
+    s_do_store_one(sd, &ptr[3 * sizeof(__m512i)]); \
+  }
+
+  const unsigned char *in;
+  unsigned char *out;
+  const ulong32* k;
+  unsigned long iblock;
+  __m512i a, b, c, d, e;
+
+  LTC_ARGCHK(pt);
+  LTC_ARGCHK(ct);
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  in = pt;
+  out = ct;
+  k = &skey->serpent.k[0];
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    s_do_load_four(a, b, c, d, in);
+    s_apply_order_00(s_apply_key);
+    s_apply_order_00(s_enc_0); s_apply_order_01(s_apply_ln_tr_key);
+    s_apply_order_01(s_enc_1); s_apply_order_02(s_apply_ln_tr_key);
+    s_apply_order_02(s_enc_2); s_apply_order_03(s_apply_ln_tr_key);
+    s_apply_order_03(s_enc_3); s_apply_order_04(s_apply_ln_tr_key);
+    s_apply_order_04(s_enc_4); s_apply_order_05(s_apply_ln_tr_key);
+    s_apply_order_05(s_enc_5); s_apply_order_06(s_apply_ln_tr_key);
+    s_apply_order_06(s_enc_6); s_apply_order_07(s_apply_ln_tr_key);
+    s_apply_order_07(s_enc_7); s_apply_order_08(s_apply_ln_tr_key);
+    s_apply_order_08(s_enc_0); s_apply_order_09(s_apply_ln_tr_key);
+    s_apply_order_09(s_enc_1); s_apply_order_10(s_apply_ln_tr_key);
+    s_apply_order_10(s_enc_2); s_apply_order_11(s_apply_ln_tr_key);
+    s_apply_order_11(s_enc_3); s_apply_order_12(s_apply_ln_tr_key);
+    s_apply_order_12(s_enc_4); s_apply_order_13(s_apply_ln_tr_key);
+    s_apply_order_13(s_enc_5); s_apply_order_14(s_apply_ln_tr_key);
+    s_apply_order_14(s_enc_6); s_apply_order_15(s_apply_ln_tr_key);
+    s_apply_order_15(s_enc_7); s_apply_order_16(s_apply_ln_tr_key);
+    s_apply_order_16(s_enc_0); s_apply_order_17(s_apply_ln_tr_key);
+    s_apply_order_17(s_enc_1); s_apply_order_18(s_apply_ln_tr_key);
+    s_apply_order_18(s_enc_2); s_apply_order_19(s_apply_ln_tr_key);
+    s_apply_order_19(s_enc_3); s_apply_order_20(s_apply_ln_tr_key);
+    s_apply_order_20(s_enc_4); s_apply_order_21(s_apply_ln_tr_key);
+    s_apply_order_21(s_enc_5); s_apply_order_22(s_apply_ln_tr_key);
+    s_apply_order_22(s_enc_6); s_apply_order_23(s_apply_ln_tr_key);
+    s_apply_order_23(s_enc_7); s_apply_order_24(s_apply_ln_tr_key);
+    s_apply_order_24(s_enc_0); s_apply_order_25(s_apply_ln_tr_key);
+    s_apply_order_25(s_enc_1); s_apply_order_26(s_apply_ln_tr_key);
+    s_apply_order_26(s_enc_2); s_apply_order_27(s_apply_ln_tr_key);
+    s_apply_order_27(s_enc_3); s_apply_order_28(s_apply_ln_tr_key);
+    s_apply_order_28(s_enc_4); s_apply_order_29(s_apply_ln_tr_key);
+    s_apply_order_29(s_enc_5); s_apply_order_30(s_apply_ln_tr_key);
+    s_apply_order_30(s_enc_6); s_apply_order_31(s_apply_ln_tr_key);
+    s_apply_order_31(s_enc_7); s_apply_order_32(s_apply_key);
+    s_do_store_four(a, b, c, d, out);
+    in += blocks_at_a_time * serpent_block_len;
+    out += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+  #undef s_do_broadcast
+  #undef s_do_xor
+  #undef s_do_and
+  #undef s_do_or
+  #undef s_do_not
+  #undef s_do_assign
+  #undef s_do_rol
+  #undef s_do_shl
+  #undef s_do_load_one
+  #undef s_do_store_one
+  #undef s_do_load_four
+  #undef s_do_store_four
+}
+
+static LTC_INLINE int s_serpent_accel_ecb_decrypt_512_bit_avx512(const unsigned char *ct, unsigned char *pt, unsigned long blocks, const symmetric_key *skey)
+{
+  return CRYPT_OK;
+}
+
+static LTC_INLINE int s_serpent_accel_ctr_encrypt_512_bit_avx512(const unsigned char *pt, unsigned char *ct, unsigned long blocks, unsigned char *IV, int mode, const symmetric_key *skey)
+{
+  #define blocks_at_a_time (512 / 32)
+
+  typedef union {
+    unsigned char chars[blocks_at_a_time * serpent_block_len];
+    __m512i align;
+  } pad_t;
+
+  unsigned long iblock;
+  int i;
+  pad_t pad;
+  int err;
+  __m512i big_int_pad;
+  __m512i big_int_pt;
+  __m512i big_int_ct;
+
+  LTC_ARGCHK(blocks % blocks_at_a_time == 0);
+
+  for (iblock = 0; iblock != blocks; iblock += blocks_at_a_time) {
+    for (i = 0; i != blocks_at_a_time; ++i) {
+      s_serpent_accel_ctr_increment_counter_generic(IV, mode);
+      XMEMCPY(&pad.chars[i * serpent_block_len], IV, serpent_block_len);
+    }
+    if ((err = s_serpent_accel_ecb_encrypt_512_bit_avx512(&pad.chars[0], &pad.chars[0], blocks_at_a_time, skey)) != CRYPT_OK) {
+      return err;
+    }
+    for (i = 0; i != LTC_ARRAY_SIZE(pad.chars) / sizeof(pad.align); ++i) {
+      big_int_pad = _mm512_load_si512(((const __m512i*)(&pad.chars[0] + i * sizeof(__m512i))));
+      big_int_pt = _mm512_loadu_si512(((const __m512i*)(pt + i * sizeof(__m512i))));
+      big_int_ct = _mm512_xor_si512(big_int_pad, big_int_pt);
+      _mm512_storeu_si512(((__m512i*)(ct + i * sizeof(__m512i))), big_int_ct);
+    }
+    pt += blocks_at_a_time * serpent_block_len;
+    ct += blocks_at_a_time * serpent_block_len;
+  }
+  return CRYPT_OK;
+
+  #undef blocks_at_a_time
+}
+
+#endif /* LTC_SERPENT_ACCEL_512_BIT_X86_AVX512 */
+
 #undef s_apply_order_00
 #undef s_apply_order_01
 #undef s_apply_order_02
@@ -1925,7 +2168,7 @@ int serpent_accel_ecb_encrypt(const unsigned char *pt, unsigned char *ct, unsign
     #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
     if (rem >= (512 / 32) && s_serpent_accel_512_bit_avx512_is_supported()) {
       n = (rem / (512 / 32)) * (512 / 32);
-      err = s_serpent_accel_ecb_encrypt_avx512_512_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      err = s_serpent_accel_ecb_encrypt_512_bit_avx512(in, out, n, skey); if (err != CRYPT_OK) { return err; }
       out += n * serpent_block_len;
       in += n * serpent_block_len;
       rem -= n;
@@ -2014,7 +2257,7 @@ int serpent_accel_ecb_decrypt(const unsigned char *ct, unsigned char *pt, unsign
     #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
     if (rem >= (512 / 32) && s_serpent_accel_512_bit_avx512_is_supported()) {
       n = (rem / (512 / 32)) * (512 / 32);
-      err = s_serpent_accel_ecb_decrypt_avx512_512_bit(in, out, n, skey); if (err != CRYPT_OK) { return err; }
+      err = s_serpent_accel_ecb_decrypt_512_bit_avx512(in, out, n, skey); if (err != CRYPT_OK) { return err; }
       out += n * serpent_block_len;
       in += n * serpent_block_len;
       rem -= n;
@@ -2104,7 +2347,7 @@ static int s_serpent_accel_ctr_encrypt(const unsigned char *pt, unsigned char *c
     #if defined LTC_SERPENT_ACCEL_512_BIT_X86_AVX512
     if (rem >= (512 / 32) && s_serpent_accel_512_bit_avx512_is_supported()) {
       n = (rem / (512 / 32)) * (512 / 32);
-      err = s_serpent_accel_ctr_encrypt_avx512_512_bit(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
+      err = s_serpent_accel_ctr_encrypt_512_bit_avx512(in, out, n, IV, mode, skey); if (err != CRYPT_OK) { return err; }
       out += n * serpent_block_len;
       in += n * serpent_block_len;
       rem -= n;
