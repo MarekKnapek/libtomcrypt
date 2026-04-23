@@ -958,4 +958,51 @@ int which ## _export(unsigned char *out, unsigned long *outlen, prng_state *prng
    #endif
 #endif
 
+#if defined LTC_ARCH_X86
+#if defined _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(__cpuid)
+#pragma intrinsic(__cpuidex)
+#endif
+static LTC_INLINE void s_x86_cpuid(int* regs, int leaf)
+{
+#if defined _MSC_VER
+   __cpuid(regs, leaf);
+#else
+    int a, b, c, d;
+
+    a = leaf;
+    b = c = d = 0;
+    asm volatile ("cpuid"
+        :"=a"(a), "=b"(b), "=c"(c), "=d"(d)
+        :"a"(a), "c"(c)
+    );
+    regs[0] = a;
+    regs[1] = b;
+    regs[2] = c;
+    regs[3] = d;
+#endif
+}
+static LTC_INLINE void s_x86_cpuidex(int* regs, int eax, int ecx)
+{
+#if defined _MSC_VER
+   __cpuidex(regs, eax, ecx);
+#else
+    int a, b, c, d;
+
+    a = eax;
+    c = ecx;
+    b = d = 0;
+    asm volatile ("cpuid"
+        :"=a"(a), "=b"(b), "=c"(c), "=d"(d)
+        :"a"(a), "c"(c)
+    );
+    regs[0] = a;
+    regs[1] = b;
+    regs[2] = c;
+    regs[3] = d;
+#endif
+}
+#endif /* LTC_ARCH_X86 */
+
 #endif /* TOMCRYPT_PRIVATE_H_ */

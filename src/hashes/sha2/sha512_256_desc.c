@@ -29,58 +29,6 @@ const struct ltc_hash_descriptor sha512_256_desc =
 
 #if defined LTC_SHA512_256_X86
 
-#if !defined (LTC_S_X86_CPUID)
-#define LTC_S_X86_CPUID
-#if defined _MSC_VER
-#include <intrin.h>
-#endif
-static LTC_INLINE void s_x86_cpuid(int* regs, int leaf)
-{
-#if defined _MSC_VER
-   __cpuid(regs, leaf);
-#else
-    int a, b, c, d;
-
-    a = leaf;
-    b = c = d = 0;
-    asm volatile ("cpuid"
-        :"=a"(a), "=b"(b), "=c"(c), "=d"(d)
-        :"a"(a), "c"(c)
-    );
-    regs[0] = a;
-    regs[1] = b;
-    regs[2] = c;
-    regs[3] = d;
-#endif
-}
-#endif /* LTC_S_X86_CPUID */
-#if !defined (LTC_S_X86_CPUIDEX)
-#define LTC_S_X86_CPUIDEX
-#if defined _MSC_VER
-#include <intrin.h>
-#endif
-static LTC_INLINE void s_x86_cpuidex(int* regs, int eax, int ecx)
-{
-#if defined _MSC_VER
-   __cpuidex(regs, eax, ecx);
-#else
-    int a, b, c, d;
-
-    a = eax;
-    c = ecx;
-    b = d = 0;
-    asm volatile ("cpuid"
-        :"=a"(a), "=b"(b), "=c"(c), "=d"(d)
-        :"0"(a), "2"(c)
-    );
-    regs[0] = a;
-    regs[1] = b;
-    regs[2] = c;
-    regs[3] = d;
-#endif
-}
-#endif /* LTC_S_X86_CPUIDEX */
-
 static LTC_INLINE int s_sha512_256_x86_is_supported(void)
 {
     static int initialized = 0;
