@@ -48,6 +48,13 @@ int hmac_test(void)
     return CRYPT_NOP;
  #else
     unsigned char digest[MAXBLOCKSIZE];
+    static const unsigned char empty_key_sha256_expected[32] = {
+        0xfd, 0x7a, 0xdb, 0x15, 0x2c, 0x05, 0xef, 0x80,
+        0xdc, 0xcf, 0x50, 0xa1, 0xfa, 0x4c, 0x05, 0xd5,
+        0xa3, 0xec, 0x6d, 0xa9, 0x55, 0x75, 0xfc, 0x31,
+        0x2a, 0xe7, 0xc5, 0xd0, 0x91, 0x83, 0x63, 0x51
+    };
+    static const unsigned char empty_key_msg[] = { 'a', 'b', 'c' };
     int i;
 
     static const unsigned char hmac_test_case_keys[][136] = {
@@ -609,6 +616,17 @@ int hmac_test(void)
     }
     if (tested == 0) {
         return CRYPT_NOP;
+    }
+
+    i = find_hash("sha256");
+    if (i != -1) {
+        outlen = sizeof(digest);
+        if ((err = hmac_memory(i, NULL, 0, empty_key_msg, sizeof(empty_key_msg), digest, &outlen)) != CRYPT_OK) {
+            return err;
+        }
+        if (ltc_compare_testvector(digest, outlen, empty_key_sha256_expected, sizeof(empty_key_sha256_expected), "empty-key sha256", (unsigned long)i)) {
+            return CRYPT_FAIL_TESTVECTOR;
+        }
     }
     return CRYPT_OK;
  #endif
