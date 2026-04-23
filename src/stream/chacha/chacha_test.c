@@ -33,7 +33,7 @@ int chacha_test(void)
    chacha_state st;
    int err;
 
-   len = XSTRLEN(pt);
+   len = (unsigned long)XSTRLEN(pt);
 
    /* crypt piece by piece - using chacha_ivctr32() */
    if ((err = chacha_setup(&st, k, sizeof(k), 20)) != CRYPT_OK)                            return err;

@@ -182,7 +182,7 @@ int crc32_test(void)
    unsigned char out[4];
    crc32_state ctx;
    crc32_init(&ctx);
-   crc32_update(&ctx, in, XSTRLEN(in));
+   crc32_update(&ctx, in, (unsigned long)XSTRLEN(in));
    crc32_finish(&ctx, out, 4);
    if (ltc_compare_testvector(crc32, 4, out, 4, "CRC32", 0)) {
       return CRYPT_FAIL_TESTVECTOR;

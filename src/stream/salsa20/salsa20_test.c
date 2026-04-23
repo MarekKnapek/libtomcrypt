@@ -32,7 +32,7 @@ int salsa20_test(void)
    int counter;
    int rounds;
    int err;
-   len = XSTRLEN(pt);
+   len = (unsigned long)XSTRLEN(pt);
 
    /* crypt piece by piece */
    counter = 0;
