@@ -1,0 +1,16 @@
+"on": "push"
+"jobs":
+  "msvs":
+    "strategy":
+      "matrix":
+        "conf": ["MSVC-Debug", "MSVC-Release", "clang-Debug", "clang-Release"]
+        "arch": ["x86", "x64"]
+    "runs-on": "windows-2025-vs2026"
+    "steps":
+      - "uses": "actions/checkout@main"
+      - "run": "cmd.exe /c .github\\workflows\\msvs.bat ${{matrix.conf}} ${{matrix.arch}}"
+  "cmake-win":
+    "runs-on": "windows-2025-vs2026"
+    "steps":
+      - "uses": "actions/checkout@main"
+      - "run": "cmd.exe /c .github\\workflows\\cmake-win.bat"
