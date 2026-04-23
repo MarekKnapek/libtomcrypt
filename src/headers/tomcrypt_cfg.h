@@ -417,8 +417,6 @@ typedef unsigned long ltc_mp_digit;
 #else
 #  define LTC_ATTRIBUTE(x)
 #endif
-#define LTC_SHA512_TARGET __attribute__((__target__("sse2,avx,avx2,sha512")))
-#define LTC_SHA512_TARGET
 
 #if !defined(LTC_NO_GCM_PMULL) && (defined(__aarch64__) || defined(_M_ARM64))
 #define LTC_GCM_PMULL
