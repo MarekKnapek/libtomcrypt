@@ -428,8 +428,6 @@ typedef unsigned long ltc_mp_digit;
 #else
 #  define LTC_ATTRIBUTE(x)
 #endif
-#define LTC_SHA512_TARGET __attribute__((__target__("sse2,avx,avx2,sha512")))
-#define LTC_SHA512_TARGET
 
 #if __has_attribute(target)
 #  define LTC_TARGET(x) LTC_ATTRIBUTE((target(x)))
