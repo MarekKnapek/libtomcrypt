@@ -340,7 +340,7 @@ static void der_set_test(void)
    strcpy(strs[9], "bbbb");
 
    for (x = 0; x < 10; x++) {
-       LTC_SET_ASN1(list, x, LTC_ASN1_PRINTABLE_STRING, strs[x], XSTRLEN(strs[x]));
+       LTC_SET_ASN1(list, x, LTC_ASN1_PRINTABLE_STRING, strs[x], (unsigned long)XSTRLEN(strs[x]));
    }
 
    outlen = sizeof(outbuf);
@@ -434,8 +434,8 @@ static void der_flexi_test(void)
    ltc_asn1_list static_list[5][4], *decoded_list, *l;
 
    /* build list */
-   LTC_SET_ASN1(static_list[0], 0, LTC_ASN1_PRINTABLE_STRING, (void *)printable_str, XSTRLEN(printable_str));
-   LTC_SET_ASN1(static_list[0], 1, LTC_ASN1_IA5_STRING,       (void *)ia5_str,       XSTRLEN(ia5_str));
+   LTC_SET_ASN1(static_list[0], 0, LTC_ASN1_PRINTABLE_STRING, (void *)printable_str, (unsigned long)XSTRLEN(printable_str));
+   LTC_SET_ASN1(static_list[0], 1, LTC_ASN1_IA5_STRING,       (void *)ia5_str,       (unsigned long)XSTRLEN(ia5_str));
    LTC_SET_ASN1(static_list[0], 2, LTC_ASN1_SEQUENCE,         static_list[1],   4);
 
    LTC_SET_ASN1(static_list[1], 0, LTC_ASN1_SHORT_INTEGER,    (void *)&int_val,         1);
@@ -451,8 +451,8 @@ static void der_flexi_test(void)
    LTC_SET_ASN1(static_list[3], 1, LTC_ASN1_NULL,             NULL,             0);
    LTC_SET_ASN1(static_list[3], 2, LTC_ASN1_SETOF,            static_list[4],   2);
 
-   LTC_SET_ASN1(static_list[4], 0, LTC_ASN1_PRINTABLE_STRING, set1_str, XSTRLEN(set1_str));
-   LTC_SET_ASN1(static_list[4], 1, LTC_ASN1_PRINTABLE_STRING, set2_str, XSTRLEN(set2_str));
+   LTC_SET_ASN1(static_list[4], 0, LTC_ASN1_PRINTABLE_STRING, set1_str, (unsigned long)XSTRLEN(set1_str));
+   LTC_SET_ASN1(static_list[4], 1, LTC_ASN1_PRINTABLE_STRING, set2_str, (unsigned long)XSTRLEN(set2_str));
 
    /* encode it */
    encode_buf_len = sizeof(encode_buf);
@@ -953,7 +953,7 @@ static void der_Xcode_run(const der_Xcode_t* x)
 
    l1 = 1;
    d1 = XMALLOC(l1 * x->type_sz);
-   sz = (x->in_sz * x->factor)/x->type_sz;
+   sz = (unsigned long)((x->in_sz * x->factor)/x->type_sz);
 
    if (x->encode(x->in, sz, d1, &l1) == CRYPT_BUFFER_OVERFLOW) {
       d1 = XREALLOC(d1, l1 * x->type_sz);
@@ -965,7 +965,7 @@ static void der_Xcode_run(const der_Xcode_t* x)
       d2 = XREALLOC(d2, l2 * x->type_sz);
    }
    DO(x->decode(d1, l1, d2, &l2));
-   COMPARE_TESTVECTOR(d2, (l2/x->factor) * x->type_sz, x->in, x->in_sz, x->what, __LINE__);
+   COMPARE_TESTVECTOR(d2, (unsigned long)((l2/x->factor) * x->type_sz), x->in, (unsigned long)x->in_sz, x->what, __LINE__);
    XFREE(d2);
    XFREE(d1);
 }
@@ -1303,12 +1303,12 @@ int der_test(void)
    static const unsigned char rsa_ia5[]     = "test1@rsa.com";
    static const unsigned char rsa_ia5_der[] = { 0x16, 0x0d, 0x74, 0x65, 0x73, 0x74, 0x31,
                                                 0x40, 0x72, 0x73, 0x61, 0x2e, 0x63, 0x6f, 0x6d };
-   unsigned long rsa_ia5_len = XSTRLEN((char*)rsa_ia5);
+   unsigned long rsa_ia5_len = (unsigned long)XSTRLEN((char*)rsa_ia5);
 
    static const unsigned char rsa_printable[] = "Test User 1";
    static const unsigned char rsa_printable_der[] = { 0x13, 0x0b, 0x54, 0x65, 0x73, 0x74, 0x20, 0x55,
                                                       0x73, 0x65, 0x72, 0x20, 0x31 };
-   unsigned long rsa_printable_len = XSTRLEN((char*)rsa_printable);
+   unsigned long rsa_printable_len = (unsigned long)XSTRLEN((char*)rsa_printable);
 
    static const ltc_utctime   rsa_time1 = { 91, 5, 6, 16, 45, 40, 1, 7, 0 };
    static const ltc_utctime   rsa_time2 = { 91, 5, 6, 23, 45, 40, 0, 0, 0 };

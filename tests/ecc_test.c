@@ -995,7 +995,20 @@ static int s_ecc_rfc6979(void)
                  }
                 },
                 {
-                 0
+                  NULL, NULL, NULL, NULL,
+                  {
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                  }
                 }
    };
 
@@ -1022,40 +1035,40 @@ static int s_ecc_rfc6979(void)
                                 .wprng = find_prng ("yarrow")
    };
    for (t = 0; tests[t].curve; ++t) {
-      curvelen = XSTRLEN(tests[t].curve);
+      curvelen = (unsigned long)XSTRLEN(tests[t].curve);
       XMEMCPY(name, tests[t].curve, curvelen);
       name[curvelen++] = '-';
       DOX(ecc_find_curve(tests[t].curve, &dp), tests[t].curve);
       pklen = sizeof(pk);
-      DOX(base16_decode(tests[t].x, XSTRLEN(tests[t].x), pk, &pklen), tests[t].curve);
+      DOX(base16_decode(tests[t].x, (unsigned long)XSTRLEN(tests[t].x), pk, &pklen), tests[t].curve);
       DOX(ecc_set_curve(dp, &key), tests[t].curve);
       DOX(ecc_set_key(pk, pklen, PK_PRIVATE, &key), tests[t].curve);
       name[curvelen] = 'U';
       name[curvelen + 1] = 'x';
       name[curvelen + 2] = '\0';
       ltc_mp.write_radix(key.pubkey.x, tmp, 16);
-      COMPARE_TESTVECTOR(tmp, XSTRLEN(tmp), tests[t].Ux, XSTRLEN(tests[t].Ux), name, t * 1000);
+      COMPARE_TESTVECTOR(tmp, (unsigned long)XSTRLEN(tmp), tests[t].Ux, (unsigned long)XSTRLEN(tests[t].Ux), name, t * 1000);
       name[curvelen + 1] = 'y';
       ltc_mp.write_radix(key.pubkey.y, tmp, 16);
-      COMPARE_TESTVECTOR(tmp, XSTRLEN(tmp), tests[t].Uy, XSTRLEN(tests[t].Uy), name, t * 1000);
+      COMPARE_TESTVECTOR(tmp, (unsigned long)XSTRLEN(tmp), tests[t].Uy, (unsigned long)XSTRLEN(tests[t].Uy), name, t * 1000);
       i = h = 0;
       for (s = 0; tests[t].signatures[s].k; ++s) {
          if (h == 0) {
-            inputlen = XSTRLEN(inputs[i]);
+            inputlen = (unsigned long)XSTRLEN(inputs[i]);
             XMEMCPY(&name[curvelen], inputs[i], inputlen);
             name[curvelen + inputlen++] = '-';
          }
          XMEMCPY(&name[curvelen + inputlen], hashes[h], 7);
          hashlen = sizeof(hash);
-         DOX(hash_memory(find_hash(hashes[h]), inputs[i], XSTRLEN(inputs[i]), hash, &hashlen), name);
+         DOX(hash_memory(find_hash(hashes[h]), inputs[i], (unsigned long)XSTRLEN(inputs[i]), hash, &hashlen), name);
          sig_opts.rfc6979_hash_alg = hashes[h];
          siglen = sizeof(sig);
          DOX(ecc_sign_hash_v2(hash, hashlen, sig, &siglen, &sig_opts, &key), name);
          XMEMSET(should, 0, sizeof(should));
          shouldlen = sizeof(should);
-         DOX(base16_decode(tests[t].signatures[s].r, XSTRLEN(tests[t].signatures[s].r), should, &shouldlen), name);
+         DOX(base16_decode(tests[t].signatures[s].r, (unsigned long)XSTRLEN(tests[t].signatures[s].r), should, &shouldlen), name);
          shouldlen2 = sizeof(should) - shouldlen;
-         DOX(base16_decode(tests[t].signatures[s].s, XSTRLEN(tests[t].signatures[s].s), should + shouldlen, &shouldlen2), name);
+         DOX(base16_decode(tests[t].signatures[s].s, (unsigned long)XSTRLEN(tests[t].signatures[s].s), should + shouldlen, &shouldlen2), name);
          COMPARE_TESTVECTOR(sig, siglen, should, shouldlen + shouldlen2, name, (t * 1000 | s * 100 | i * 10 | h));
          h++;
          if (h == 5) {
@@ -1072,7 +1085,7 @@ static int s_ecc_rfc6979(void)
 static int password_get(void **p, unsigned long *l, void *u)
 {
    LTC_UNUSED_PARAM(u);
-   *p = strdup("secret");
+   *p = ltc_strdup("secret");
    *l = 6;
    return 0;
 }

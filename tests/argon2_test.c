@@ -69,7 +69,7 @@ int argon2_test(void)
                      3, 32, 4,
                      argon_testcase[n].type,
                      tag, sizeof(tag)));
-      COMPARE_TESTVECTOR(tag, sizeof(tag), argon_testcase[n].expected, argon_testcase[n].elen, argon_testcase[n].name, n);
+      COMPARE_TESTVECTOR(tag, sizeof(tag), argon_testcase[n].expected, argon_testcase[n].elen, argon_testcase[n].name, (int)n);
    }
 
    return CRYPT_OK;
