@@ -27,7 +27,7 @@ const struct ltc_hash_descriptor sha512_224_desc =
     NULL
 };
 
-#if defined LTC_SHA224_X86
+#if defined LTC_SHA512_224_X86
 
 #if !defined (LTC_S_X86_CPUID)
 #define LTC_S_X86_CPUID
@@ -109,7 +109,7 @@ static LTC_INLINE int s_sha512_224_x86_is_supported(void)
     }
     return is_supported;
 }
-#endif /* LTC_SHA224_X86 */
+#endif /* LTC_SHA512_224_X86 */
 
 /**
    Initialize the hash state
