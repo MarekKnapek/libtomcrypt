@@ -186,6 +186,7 @@ int func_name (hash_state * md, const unsigned char *in, unsigned long inlen)   
 
 
 #define LTC_SHA_TARGET LTC_ATTRIBUTE((__target__("sse2,ssse3,sse4.1,sha")))
+#define LTC_SHA512_TARGET LTC_ATTRIBUTE((__target__("sse2,avx,avx2,sha512")))
 
 #ifdef LTC_SHA1
 int sha1_test_desc(const struct ltc_hash_descriptor *desc, const char *name);
