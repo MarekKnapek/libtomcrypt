@@ -324,14 +324,19 @@ typedef unsigned long ltc_mp_digit;
       #define LTC_GCM_PCLMUL
       #undef LTC_GCM_TABLES
    #endif
-   #if !defined(LTC_NO_SHA1_X86)
-      #define LTC_SHA1_X86
-   #endif
-   #if !defined(LTC_NO_SHA224_X86)
-      #define LTC_SHA224_X86
-   #endif
-   #if !defined(LTC_NO_SHA256_X86)
-      #define LTC_SHA256_X86
+   #if \
+      (defined __GNUC__ && defined __GNUC_MINOR__ && (((__GNUC__) > 4) || ((__GNUC__) == 4 && (__GNUC_MINOR__) >= 9))) || \
+      (defined __clang__ && defined __clang_major__ && defined __clang_minor__ & (((__clang_major__) > 3) || ((__clang_major__) == 3 && (__clang_minor__) >= 8))) || \
+      (defined _MSC_VER && defined _MSC_FULL_VER && (_MSC_VER) >= 1900)
+      #if !defined(LTC_NO_SHA1_X86)
+         #define LTC_SHA1_X86
+      #endif
+      #if !defined(LTC_NO_SHA224_X86)
+         #define LTC_SHA224_X86
+      #endif
+      #if !defined(LTC_NO_SHA256_X86)
+         #define LTC_SHA256_X86
+      #endif
    #endif
 #endif
 
