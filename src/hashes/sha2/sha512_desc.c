@@ -7,27 +7,7 @@
    SHA512 by Tom St Denis
 */
 
-#ifdef LTC_SHA512
-
-const struct ltc_hash_descriptor sha512_desc =
-{
-    "sha512",
-    5,
-    64,
-    128,
-
-    /* OID */
-   { 2, 16, 840, 1, 101, 3, 4, 2, 3,  },
-   9,
-
-    &sha512_init,
-    &sha512_process,
-    &sha512_done,
-    &sha512_test,
-    NULL
-};
-
-#if defined LTC_SHA512_X86
+#if defined LTC_ARCH_X86
 
 #if !defined (LTC_S_X86_CPUID)
 #define LTC_S_X86_CPUID
@@ -54,6 +34,7 @@ static LTC_INLINE void s_x86_cpuid(int* regs, int leaf)
 #endif
 }
 #endif /* LTC_S_X86_CPUID */
+
 #if !defined (LTC_S_X86_CPUIDEX)
 #define LTC_S_X86_CPUIDEX
 #if defined _MSC_VER
@@ -109,7 +90,37 @@ static LTC_INLINE int s_sha512_x86_is_supported(void)
     }
     return is_supported;
 }
-#endif /* LTC_SHA512_X86 */
+
+#endif /* LTC_ARCH_X86 */
+
+int sha512ni_is_supported(void)
+{
+#ifdef LTC_ARCH_X86
+   return s_sha512_x86_is_supported();
+#else
+   return 0;
+#endif
+}
+
+#ifdef LTC_SHA512
+
+const struct ltc_hash_descriptor sha512_desc =
+{
+    "sha512",
+    5,
+    64,
+    128,
+
+    /* OID */
+   { 2, 16, 840, 1, 101, 3, 4, 2, 3,  },
+   9,
+
+    &sha512_init,
+    &sha512_process,
+    &sha512_done,
+    &sha512_test,
+    NULL
+};
 
 /**
    Initialize the hash state

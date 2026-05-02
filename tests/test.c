@@ -373,6 +373,7 @@ int main(int argc, char **argv)
    printf("AES-NI CPU support = %d\n", aesni_is_supported());
    printf("SHA-NI CPU support = %d\n", shani_is_supported());
    printf("PMUL CPU support = %d\n", gcm_hw_pmul_is_supported());
+   printf("SHA-512-NI CPU support = %d\n", sha512ni_is_supported());
    putchar('\n');
 
 #ifdef USE_LTM
