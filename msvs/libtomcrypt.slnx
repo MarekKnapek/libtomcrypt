@@ -11,4 +11,7 @@
   <Project Path="test/test.vcxproj" Id="80b78b0f-8a80-4850-b8f8-06b4a1e4b5c1" DefaultStartup="true">
     <BuildDependency Project="libtomcrypt/libtomcrypt.vcxproj" />
   </Project>
+  <Project Path="timing/timing.vcxproj" Id="b4dba70a-9ab3-4a80-a011-5eec325d7289">
+    <BuildDependency Project="libtomcrypt/libtomcrypt.vcxproj" />
+  </Project>
 </Solution>
