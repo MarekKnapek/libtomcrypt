@@ -1,5 +1,7 @@
 <Solution>
   <Configurations>
+    <BuildType Name="clang-Debug" />
+    <BuildType Name="clang-Release" />
     <BuildType Name="MSVC-Debug" />
     <BuildType Name="MSVC-Release" />
     <Platform Name="x64" />
