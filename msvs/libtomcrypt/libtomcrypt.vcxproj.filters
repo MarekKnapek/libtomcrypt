@@ -214,9 +214,17 @@
     <ClCompile Include="..\..\src\hashes\sha2\sha256_desc.c"><Filter>src\hashes\sha2</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha2\sha256_x86.c"><Filter>src\hashes\sha2</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha2\sha384.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha384_desc.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha384_x86.c"><Filter>src\hashes\sha2</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha2\sha512.c"><Filter>src\hashes\sha2</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha2\sha512_224.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha512_224_desc.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha512_224_x86.c"><Filter>src\hashes\sha2</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha2\sha512_256.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha512_256_desc.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha512_256_x86.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha512_desc.c"><Filter>src\hashes\sha2</Filter></ClCompile>
+    <ClCompile Include="..\..\src\hashes\sha2\sha512_x86.c"><Filter>src\hashes\sha2</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha3.c"><Filter>src\hashes</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\sha3_test.c"><Filter>src\hashes</Filter></ClCompile>
     <ClCompile Include="..\..\src\hashes\tiger.c"><Filter>src\hashes</Filter></ClCompile>
