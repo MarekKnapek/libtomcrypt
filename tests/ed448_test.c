@@ -223,17 +223,17 @@ static int s_rfc_8032_5_2_6_pure_test(void)
 
    for (n = 0; n < sizeof(vectors)/sizeof(vectors[0]); ++n) {
       slen = sizeof(sec);
-      DO(base16_decode(vectors[n].secret_key, XSTRLEN(vectors[n].secret_key), sec, &slen));
+      DO(base16_decode(vectors[n].secret_key, (int)XSTRLEN(vectors[n].secret_key), sec, &slen));
       plen = sizeof(pub);
-      DO(base16_decode(vectors[n].public_key, XSTRLEN(vectors[n].public_key), pub, &plen));
-      if (XSTRLEN(vectors[n].message) > 0) {
+      DO(base16_decode(vectors[n].public_key, (int)XSTRLEN(vectors[n].public_key), pub, &plen));
+      if ((int)XSTRLEN(vectors[n].message) > 0) {
          mlen = sizeof(msg);
-         DO(base16_decode(vectors[n].message, XSTRLEN(vectors[n].message), msg, &mlen));
+         DO(base16_decode(vectors[n].message, (int)XSTRLEN(vectors[n].message), msg, &mlen));
       } else {
          mlen = 0;
       }
       siglen = sizeof(sig);
-      DO(base16_decode(vectors[n].signature, XSTRLEN(vectors[n].signature), sig, &siglen));
+      DO(base16_decode(vectors[n].signature, (int)XSTRLEN(vectors[n].signature), sig, &siglen));
 
       /* sign with private key and compare */
       DO(ed448_import_raw(sec, slen, PK_PRIVATE, &key));
@@ -283,15 +283,15 @@ static int s_rfc_8032_5_2_6_ctx_test(void)
 
    for (n = 0; n < sizeof(vectors)/sizeof(vectors[0]); ++n) {
       slen = sizeof(sec);
-      DO(base16_decode(vectors[n].secret_key, XSTRLEN(vectors[n].secret_key), sec, &slen));
+      DO(base16_decode(vectors[n].secret_key, (int)XSTRLEN(vectors[n].secret_key), sec, &slen));
       plen = sizeof(pub);
-      DO(base16_decode(vectors[n].public_key, XSTRLEN(vectors[n].public_key), pub, &plen));
+      DO(base16_decode(vectors[n].public_key, (int)XSTRLEN(vectors[n].public_key), pub, &plen));
       mlen = sizeof(msg);
-      DO(base16_decode(vectors[n].message, XSTRLEN(vectors[n].message), msg, &mlen));
+      DO(base16_decode(vectors[n].message, (int)XSTRLEN(vectors[n].message), msg, &mlen));
       siglen = sizeof(sig);
-      DO(base16_decode(vectors[n].signature, XSTRLEN(vectors[n].signature), sig, &siglen));
+      DO(base16_decode(vectors[n].signature, (int)XSTRLEN(vectors[n].signature), sig, &siglen));
       ctxlen = sizeof(ctx);
-      DO(base16_decode(vectors[n].context, XSTRLEN(vectors[n].context), ctx, &ctxlen));
+      DO(base16_decode(vectors[n].context, (int)XSTRLEN(vectors[n].context), ctx, &ctxlen));
 
       /* sign with context and compare */
       DO(ed448_import_raw(sec, slen, PK_PRIVATE, &key));
@@ -354,17 +354,17 @@ static int s_rfc_8032_5_2_6_ph_test(void)
 
    for (n = 0; n < sizeof(vectors)/sizeof(vectors[0]); ++n) {
       slen = sizeof(sec);
-      DO(base16_decode(vectors[n].secret_key, XSTRLEN(vectors[n].secret_key), sec, &slen));
+      DO(base16_decode(vectors[n].secret_key, (int)XSTRLEN(vectors[n].secret_key), sec, &slen));
       plen = sizeof(pub);
-      DO(base16_decode(vectors[n].public_key, XSTRLEN(vectors[n].public_key), pub, &plen));
+      DO(base16_decode(vectors[n].public_key, (int)XSTRLEN(vectors[n].public_key), pub, &plen));
       mlen = sizeof(msg);
-      DO(base16_decode(vectors[n].message, XSTRLEN(vectors[n].message), msg, &mlen));
+      DO(base16_decode(vectors[n].message, (int)XSTRLEN(vectors[n].message), msg, &mlen));
       siglen = sizeof(sig);
-      DO(base16_decode(vectors[n].signature, XSTRLEN(vectors[n].signature), sig, &siglen));
+      DO(base16_decode(vectors[n].signature, (int)XSTRLEN(vectors[n].signature), sig, &siglen));
 
       if (vectors[n].context != NULL) {
          ctxlen = sizeof(ctx);
-         DO(base16_decode(vectors[n].context, XSTRLEN(vectors[n].context), ctx, &ctxlen));
+         DO(base16_decode(vectors[n].context, (int)XSTRLEN(vectors[n].context), ctx, &ctxlen));
       } else {
          ctxlen = 0;
       }
@@ -411,14 +411,14 @@ static int s_signature_malleability_test(void)
    const int should = 0;
 
    plen = sizeof(pub);
-   DO(base16_decode(public_key, XSTRLEN(public_key), pub, &plen));
+   DO(base16_decode(public_key, (int)XSTRLEN(public_key), pub, &plen));
    mlen = sizeof(msg);
-   DO(base16_decode(message, XSTRLEN(message), msg, &mlen));
+   DO(base16_decode(message, (int)XSTRLEN(message), msg, &mlen));
    DO(ed448_import_raw(pub, plen, PK_PUBLIC, &key));
 
    for (n = 0; n < LTC_ARRAY_SIZE(test_cases); ++n) {
       siglen = sizeof(sig);
-      DO(base16_decode(test_cases[n].sig, XSTRLEN(test_cases[n].sig), sig, &siglen));
+      DO(base16_decode(test_cases[n].sig, (int)XSTRLEN(test_cases[n].sig), sig, &siglen));
       DO(ed448_verify(msg, mlen, sig, siglen, &ret, &key));
       COMPARE_TESTVECTOR(&ret, sizeof(ret), &should, sizeof(should), "Ed448 malleability rejection", test_cases[n].tc_id);
    }

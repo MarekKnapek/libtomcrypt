@@ -94,8 +94,8 @@ int modes_test(void)
    cfb_done(&cfb);
    XMEMSET(&cfb, 0, sizeof(cfb));
 #define b16(e, w) do { \
-   l = sizeof(w); \
-   DO(base16_decode(e . w, XSTRLEN(e . w), w, &l)); \
+   l = (unsigned long)sizeof(w); \
+   DO(base16_decode(e . w, (unsigned long)XSTRLEN(e . w), w, &l)); \
 } while(0)
    for (n = 0; n < LTC_ARRAY_SIZE(cfb_testvectors); ++n) {
       b16(cfb_testvectors[n], key);

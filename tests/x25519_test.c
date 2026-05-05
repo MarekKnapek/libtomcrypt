@@ -130,7 +130,7 @@ static int s_rfc_8410_10_test(void)
    unsigned long buflen;
    for (n = 0; n < LTC_ARRAY_SIZE(rfc_8410_10); ++n) {
       buflen = sizeof(buf);
-      DO(base64_decode(rfc_8410_10[n].b64, XSTRLEN(rfc_8410_10[n].b64), buf, &buflen));
+      DO(base64_decode(rfc_8410_10[n].b64, (unsigned long)XSTRLEN(rfc_8410_10[n].b64), buf, &buflen));
       DO(x25519_import_x509(buf, buflen, &key));
       zeromem(buf, sizeof(buf));
    }
@@ -139,8 +139,8 @@ static int s_rfc_8410_10_test(void)
 
 static int password_get(void **p, unsigned long *l, void *u)
 {
-   *p = strdup(u);
-   *l = strlen(*p);
+   *p = ltc_strdup(u);
+   *l = (unsigned long)strlen(*p);
    return 0;
 }
 
@@ -170,7 +170,7 @@ static int s_x25519_pkcs8_test(void)
    password_ctx *p_pw_ctx, pw_ctx = { .callback = password_get };
    for (n = 0; n < LTC_ARRAY_SIZE(s_x25519_pkcs8); ++n) {
       buflen = sizeof(buf);
-      DO(base64_decode(s_x25519_pkcs8[n].b64, XSTRLEN(s_x25519_pkcs8[n].b64), buf, &buflen));
+      DO(base64_decode(s_x25519_pkcs8[n].b64, (unsigned long)XSTRLEN(s_x25519_pkcs8[n].b64), buf, &buflen));
       pw_ctx.userdata = (void*)s_x25519_pkcs8[n].pass;
       if (s_x25519_pkcs8[n].pass != NULL) p_pw_ctx = &pw_ctx;
       else p_pw_ctx = NULL;

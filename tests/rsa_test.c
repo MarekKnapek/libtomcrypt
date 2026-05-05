@@ -443,7 +443,7 @@ static int s_rsa_import_x509(const void *in, unsigned long inlen, void *key)
 static int password_get(void **p, unsigned long *l, void *u)
 {
    LTC_UNUSED_PARAM(u);
-   *p = strdup("secret");
+   *p = ltc_strdup("secret");
    *l = 6;
    return 0;
 }
