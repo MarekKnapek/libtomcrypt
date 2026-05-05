@@ -63,7 +63,7 @@ static int s_ssh_find_ecc(const char *pka, const ltc_ecc_curve **curve)
 {
    int err;
    const char* prefix = "ecdsa-sha2-";
-   unsigned long prefixlen = XSTRLEN(prefix);
+   unsigned long prefixlen = (unsigned long)XSTRLEN(prefix);
    if (strstr(pka, prefix) == NULL) return CRYPT_PK_INVALID_TYPE;
    if ((err = ecc_find_curve(pka + prefixlen, curve)) != CRYPT_OK) return err;
    return CRYPT_OK;
@@ -493,7 +493,7 @@ static int s_parse_line(char *line, unsigned long *len, ltc_pka_key *key, char *
          skip_chars(&r, &rlen);
       else
          skip_to_eol(&r, &rlen);
-      elements[n].len = r - elements[n].p;
+      elements[n].len = (unsigned long)(r - elements[n].p);
       *r = '\0';
       r++;
    }
@@ -531,7 +531,7 @@ static int s_parse_line(char *line, unsigned long *len, ltc_pka_key *key, char *
             XMEMCPY(*comment, elements[ake_comment].p, elements[ake_comment].len);
             (*comment)[elements[ake_comment].len] = '\0';
          }
-         *len = r - line;
+         *len = (unsigned long)(r - line);
          return CRYPT_OK;
       }
    }
@@ -637,7 +637,7 @@ static int s_decode_header(unsigned char *in, unsigned long *inlen, struct kdf_o
    unsigned long i;
 
    void *magic = strstr((const char*)in, "openssh-key-v1");
-   unsigned long slen = XSTRLEN("openssh-key-v1");
+   unsigned long slen = (unsigned long)XSTRLEN("openssh-key-v1");
    unsigned char *start = &in[slen + 1];
    unsigned long len = *inlen - slen - 1;
 
@@ -824,7 +824,7 @@ int ssh_read_authorized_keys_filehandle(FILE *f, ssh_authorized_key_cb cb, void 
    if (fread(buf, 1, tot_data, f) != tot_data) {
       err = CRYPT_ERROR;
    } else {
-      err = s_read_authorized_keys(buf, tot_data, cb, ctx);
+      err = s_read_authorized_keys(buf, (unsigned long)tot_data, cb, ctx);
    }
    XFREE(buf);
 

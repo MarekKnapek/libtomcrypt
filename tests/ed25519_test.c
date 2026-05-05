@@ -417,14 +417,14 @@ static int s_signature_malleability_test(void)
    const int should = 0;
 
    plen = sizeof(pub);
-   DO(base16_decode(public_key, XSTRLEN(public_key), pub, &plen));
+   DO(base16_decode(public_key, (int)XSTRLEN(public_key), pub, &plen));
    mlen = sizeof(msg);
-   DO(base16_decode(message, XSTRLEN(message), msg, &mlen));
+   DO(base16_decode(message, (int)XSTRLEN(message), msg, &mlen));
    DO(ed25519_import_raw(pub, plen, PK_PUBLIC, &key));
 
    for (n = 0; n < LTC_ARRAY_SIZE(test_cases); ++n) {
       siglen = sizeof(sig);
-      DO(base16_decode(test_cases[n].sig, XSTRLEN(test_cases[n].sig), sig, &siglen));
+      DO(base16_decode(test_cases[n].sig, (int)XSTRLEN(test_cases[n].sig), sig, &siglen));
       DO(ed25519_verify(msg, mlen, sig, siglen, &ret, &key));
       COMPARE_TESTVECTOR(&ret, sizeof(ret), &should, sizeof(should), "Ed25519 malleability rejection", test_cases[n].tc_id);
    }

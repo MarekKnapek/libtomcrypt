@@ -292,9 +292,9 @@ static int s_ecc_wycheproof_p256_edgecase_dbl(void)
    unsigned long len, olen;
 
    DO(ecc_find_curve("SECP256R1", &cu));
-   len = sizeof(sk);       DO(base16_decode(priv_hex, XSTRLEN(priv_hex), sk, &len));
-   len = sizeof(pk);       DO(base16_decode(pub_hex,  XSTRLEN(pub_hex),  pk, &len));
-   len = sizeof(expected); DO(base16_decode(exp_hex,  XSTRLEN(exp_hex),  expected, &len));
+   len = sizeof(sk);       DO(base16_decode(priv_hex, (int)XSTRLEN(priv_hex), sk, &len));
+   len = sizeof(pk);       DO(base16_decode(pub_hex,  (int)XSTRLEN(pub_hex),  pk, &len));
+   len = sizeof(expected); DO(base16_decode(exp_hex,  (int)XSTRLEN(exp_hex),  expected, &len));
 
    DO(ecc_set_curve(cu, &priv));
    DO(ecc_set_key(sk, sizeof(sk), PK_PRIVATE, &priv));
@@ -334,7 +334,7 @@ static int s_ecc_wycheproof_p256_pem_edgecase_dbl(void)
    ENSURE(pub.id == LTC_PKA_EC);
 
    len = sizeof(expected);
-   DO(base16_decode(exp_hex, XSTRLEN(exp_hex), expected, &len));
+   DO(base16_decode(exp_hex, (int)XSTRLEN(exp_hex), expected, &len));
 
    olen = sizeof(out);
    DO(ecc_shared_secret(&priv.u.ecc, &pub.u.ecc, out, &olen));
@@ -371,7 +371,7 @@ static int s_ecc_wycheproof_p256_pem_invalid_explicit(void)
    int err;
 
    len = sizeof(bad_secret);
-   DO(base16_decode(bad_secret_hex, XSTRLEN(bad_secret_hex), bad_secret, &len));
+   DO(base16_decode(bad_secret_hex, (int)XSTRLEN(bad_secret_hex), bad_secret, &len));
 
    /* private import must succeed (it's well-formed) */
    DO(pem_decode(priv_pem, sizeof(priv_pem) - 1, &priv, NULL));
@@ -417,14 +417,14 @@ static int s_ecc_wycheproof_bp224_wrong_curve(void)
    DO(ecc_find_curve("BRAINPOOLP224R1", &bp_r1));
 
    slen = sizeof(spki);
-   DO(base16_decode(pub_spki_hex, XSTRLEN(pub_spki_hex), spki, &slen));
+   DO(base16_decode(pub_spki_hex, (int)XSTRLEN(pub_spki_hex), spki, &slen));
 
    /* import public key from its own SPKI; the named-curve OID binds pub to bp224t1, but the point also lies on bp224r1 per the Wycheproof vector */
    DO(ecc_import_openssl(spki, slen, &pub));
 
    /* set up the private key on bp224r1 with the listed scalar */
    len = sizeof(sk);
-   DO(base16_decode(priv_hex, XSTRLEN(priv_hex), sk, &len));
+   DO(base16_decode(priv_hex, (int)XSTRLEN(priv_hex), sk, &len));
    DO(ecc_set_curve(bp_r1, &priv));
    DO(ecc_set_key(sk, len, PK_PRIVATE, &priv));
 
