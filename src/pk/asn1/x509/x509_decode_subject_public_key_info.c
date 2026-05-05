@@ -48,6 +48,7 @@ int x509_decode_subject_public_key_info(const unsigned char *in, unsigned long i
    LTC_ARGCHK(inlen != 0);
    LTC_ARGCHK(public_key_len != NULL);
 
+   _parameters_len = NULL;
    if (parameters_type != LTC_ASN1_EOL) {
       if ((parameters == NULL) || (parameters_len == NULL)) {
          tmplen = 0;
