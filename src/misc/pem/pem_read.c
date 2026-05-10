@@ -21,14 +21,14 @@ static LTC_INLINE unsigned long s_bufp_alloc_len(struct bufp *buf)
 {
    if (buf->start == NULL || buf->end == NULL)
       return 0;
-   return buf->end - buf->start - 1;
+   return (unsigned long)(buf->end - buf->start) - 1;
 }
 
 static LTC_INLINE unsigned long s_bufp_used_len(struct bufp *buf)
 {
    if (buf->start == NULL || buf->end == NULL)
       return 0;
-   return buf->work - buf->start;
+   return (unsigned long)(buf->work - buf->start);
 }
 
 static LTC_INLINE int s_bufp_grow(struct bufp *buf)
@@ -220,11 +220,11 @@ static int s_pem_decode_headers(struct pem_headers *hdr, struct get_char *g)
                return CRYPT_INVALID_PACKET;
             alg_start = &buf[pem_dek_info_start.len];
             for (n = 0; n < pem_dek_infos_num; ++n) {
-               unsigned long namelen = XSTRLEN(pem_dek_infos[n].name);
+               unsigned long namelen = (unsigned long)XSTRLEN(pem_dek_infos[n].name);
                if (slen >= namelen + pem_dek_info_start.len && !XMEMCMP(alg_start, pem_dek_infos[n].name, namelen)) {
                   char *iv = alg_start + namelen;
                   hdr->info = pem_dek_infos[n];
-                  tmplen = XSTRLEN(iv);
+                  tmplen = (unsigned long)XSTRLEN(iv);
                   if (tmplen > sizeof(hdr->info.iv))
                      return CRYPT_INVALID_KEYSIZE;
                   XMEMCPY(hdr->info.iv, iv, tmplen);

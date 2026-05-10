@@ -88,7 +88,7 @@ sv pack25519(u8 *o,const gf n)
   }
   FOR(i,16) {
     o[2*i]=t[i]&0xff;
-    o[2*i+1]=t[i]>>8;
+    o[2*i+1]=(t[i]>>8)&0xff;
   }
 }
 
@@ -182,8 +182,8 @@ int tweetnacl_crypto_scalarmult(u8 *q,const u8 *n,const u8 *p)
   a[0]=d[0]=1;
   for(i=254;i>=0;--i) {
     r=(z[i>>3]>>(i&7))&1;
-    sel25519(a,b,r);
-    sel25519(c,d,r);
+    sel25519(a,b,(int)r);
+    sel25519(c,d,(int)r);
     A(e,a,c);
     Z(a,a,c);
     A(c,b,d);
@@ -202,8 +202,8 @@ int tweetnacl_crypto_scalarmult(u8 *q,const u8 *n,const u8 *p)
     M(a,d,f);
     M(d,b,x);
     S(b,e);
-    sel25519(a,b,r);
-    sel25519(c,d,r);
+    sel25519(a,b,(int)r);
+    sel25519(c,d,(int)r);
   }
   FOR(i,16) {
     x[i+16]=a[i];
@@ -230,7 +230,7 @@ static LTC_INLINE int tweetnacl_crypto_hash_ctx(u8 *out,const u8 *m,u64 n,const 
   if (n > ULONG_MAX) return CRYPT_OVERFLOW;
 
   if(cs == 0)
-    return hash_memory(hash_idx, m, n, out, &len);
+    return hash_memory(hash_idx, m, (unsigned long)n, out, &len);
 
   return hash_memory_multi(hash_idx, out, &len, ctx, cs, m, n, LTC_NULL);
 }
@@ -409,13 +409,13 @@ int tweetnacl_crypto_sign(u8 *sm,u64 *smlen,const u8 *m,u64 mlen,const u8 *sk,co
   FOR(i,(i64)mlen) sm[64 + i] = m[i];
   FOR(i,32) sm[32 + i] = d[32 + i];
 
-  tweetnacl_crypto_hash_ctx(r, sm+32, mlen+32,ctx,cs);
+  tweetnacl_crypto_hash_ctx(r, sm+32, mlen+32,ctx,(u32)cs);
   reduce(r);
   scalarbase(p,r);
   pack(sm,p);
 
   FOR(i,32) sm[i+32] = pk[i];
-  tweetnacl_crypto_hash_ctx(h,sm,mlen + 64,ctx,cs);
+  tweetnacl_crypto_hash_ctx(h,sm,mlen + 64,ctx,(u32)cs);
   reduce(h);
 
   FOR(i,64) x[i] = 0;
@@ -477,10 +477,10 @@ int tweetnacl_crypto_sign_open(int *stat, u8 *m,u64 *mlen,const u8 *sm,u64 smlen
 
   if (unpackneg(q,pk)) return CRYPT_ERROR;
 
-  XMEMMOVE(m,sm,smlen);
+  XMEMMOVE(m,sm,(size_t)smlen);
   XMEMMOVE(s,m + 32,32);
   XMEMMOVE(m + 32,pk,32);
-  tweetnacl_crypto_hash_ctx(h,m,smlen,ctx,cs);
+  tweetnacl_crypto_hash_ctx(h,m,smlen,ctx,(u32)cs);
   reduce(h);
   scalarmult(p,q,h);
 
@@ -491,12 +491,12 @@ int tweetnacl_crypto_sign_open(int *stat, u8 *m,u64 *mlen,const u8 *sm,u64 smlen
   smlen -= 64;
   if (tweetnacl_crypto_verify_32(sm, t)) {
     FOR(i,smlen) m[i] = 0;
-    zeromem(m, smlen);
+    zeromem(m, (size_t)smlen);
     return CRYPT_OK;
   }
 
   *stat = 1;
-  XMEMMOVE(m,m + 64,smlen);
+  XMEMMOVE(m,m + 64,(size_t)smlen);
   *mlen = smlen;
   return CRYPT_OK;
 }
