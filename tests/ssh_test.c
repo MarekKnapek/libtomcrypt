@@ -119,7 +119,7 @@ static int s_ssh_encoding_test(void)
    /* string */
    buflen = BUFSIZE;
    zeromem(buffer, BUFSIZE);
-   len = strlen("testing");
+   len = (unsigned long)strlen("testing");
    DO(ssh_encode_sequence_multi(buffer, &buflen,
                                 LTC_SSHDATA_STRING, "testing", len,
                                 LTC_SSHDATA_EOL,    NULL));
@@ -161,7 +161,7 @@ static int s_ssh_encoding_test(void)
    /* name-list */
    buflen = BUFSIZE;
    zeromem(buffer, BUFSIZE);
-   len = strlen("");
+   len = (unsigned long)strlen("");
    DO(ssh_encode_sequence_multi(buffer, &buflen,
                                 LTC_SSHDATA_NAMELIST, "", len,
                                 LTC_SSHDATA_EOL,      NULL));
@@ -169,7 +169,7 @@ static int s_ssh_encoding_test(void)
 
    buflen = BUFSIZE;
    zeromem(buffer, BUFSIZE);
-   len = strlen("zlib");
+   len = (unsigned long)strlen("zlib");
    DO(ssh_encode_sequence_multi(buffer, &buflen,
                                 LTC_SSHDATA_NAMELIST, "zlib", len,
                                 LTC_SSHDATA_EOL,      NULL));
@@ -177,7 +177,7 @@ static int s_ssh_encoding_test(void)
 
    buflen = BUFSIZE;
    zeromem(buffer, BUFSIZE);
-   len = strlen("zlib,none");
+   len = (unsigned long)strlen("zlib,none");
    DO(ssh_encode_sequence_multi(buffer, &buflen,
                                 LTC_SSHDATA_NAMELIST, "zlib,none", len,
                                 LTC_SSHDATA_EOL,      NULL));
