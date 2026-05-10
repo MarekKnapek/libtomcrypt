@@ -19,7 +19,7 @@ static void xor_shuffle(unsigned char *buf, unsigned long size, unsigned char ch
 static int password_get(void **p, unsigned long *l, void *u)
 {
    LTC_UNUSED_PARAM(u);
-   *p = strdup("123456");
+   *p = ltc_strdup("123456");
    *l = 6;
    return 0;
 }
@@ -68,7 +68,7 @@ static int s_rfc_8410_10_test(void)
    password_ctx pw_ctx = { .callback = password_get };
    for (n = 0; n < LTC_ARRAY_SIZE(rfc_8410_10); ++n) {
       buflen = sizeof(buf);
-      DO(base64_decode(rfc_8410_10[n].b64, XSTRLEN(rfc_8410_10[n].b64), buf, &buflen));
+      DO(base64_decode(rfc_8410_10[n].b64, (unsigned long)XSTRLEN(rfc_8410_10[n].b64), buf, &buflen));
       switch (n) {
          case 0:
             DO(ed25519_import(buf, buflen, &key));
@@ -92,7 +92,7 @@ static int s_rfc_8410_10_test(void)
          DO(ed25519_export(buf, &buflen, rfc_8410_10[n].type, &key));
          tmplen = sizeof(tmp);
          DO(base64_encode(buf, buflen, tmp, &tmplen));
-         COMPARE_TESTVECTOR(tmp, tmplen, rfc_8410_10[n].b64, XSTRLEN(rfc_8410_10[n].b64), "Ed25519 export-import", n);
+         COMPARE_TESTVECTOR(tmp, tmplen, rfc_8410_10[n].b64, (unsigned long)XSTRLEN(rfc_8410_10[n].b64), "Ed25519 export-import", n);
       }
    }
    return CRYPT_OK;
@@ -215,13 +215,13 @@ static int s_rfc_8032_7_1_test(void)
    const int should = 1;
    for (n = 0; n < LTC_ARRAY_SIZE(rfc_8032_7_1); ++n) {
       slen = sizeof(sec);
-      DO(base16_decode(rfc_8032_7_1[n].secret_key, XSTRLEN(rfc_8032_7_1[n].secret_key), sec, &slen));
+      DO(base16_decode(rfc_8032_7_1[n].secret_key, (unsigned long)XSTRLEN(rfc_8032_7_1[n].secret_key), sec, &slen));
       plen = sizeof(pub);
-      DO(base16_decode(rfc_8032_7_1[n].public_key, XSTRLEN(rfc_8032_7_1[n].public_key), pub, &plen));
+      DO(base16_decode(rfc_8032_7_1[n].public_key, (unsigned long)XSTRLEN(rfc_8032_7_1[n].public_key), pub, &plen));
       mlen = sizeof(msg);
-      DO(base16_decode(rfc_8032_7_1[n].message, XSTRLEN(rfc_8032_7_1[n].message), msg, &mlen));
+      DO(base16_decode(rfc_8032_7_1[n].message, (unsigned long)XSTRLEN(rfc_8032_7_1[n].message), msg, &mlen));
       siglen = sizeof(sig);
-      DO(base16_decode(rfc_8032_7_1[n].signature, XSTRLEN(rfc_8032_7_1[n].signature), sig, &siglen));
+      DO(base16_decode(rfc_8032_7_1[n].signature, (unsigned long)XSTRLEN(rfc_8032_7_1[n].signature), sig, &siglen));
       DO(ed25519_import_raw(sec, slen, PK_PRIVATE, &key));
       buflen = sizeof(buf);
       DO(ed25519_sign(msg, mlen, buf, &buflen, &key));
@@ -237,11 +237,11 @@ static int s_rfc_8032_7_1_test(void)
       ENSUREX(ret != 1, "ed25519_verify is expected to fail on the modified message");
 
       plen = sizeof(pub);
-      DO(base16_decode(rfc_8032_7_1[n].public_key, XSTRLEN(rfc_8032_7_1[n].public_key), pub, &plen));
+      DO(base16_decode(rfc_8032_7_1[n].public_key, (unsigned long)XSTRLEN(rfc_8032_7_1[n].public_key), pub, &plen));
       mlen = sizeof(msg);
-      DO(base16_decode(rfc_8032_7_1[n].message, XSTRLEN(rfc_8032_7_1[n].message), msg, &mlen));
+      DO(base16_decode(rfc_8032_7_1[n].message, (unsigned long)XSTRLEN(rfc_8032_7_1[n].message), msg, &mlen));
       siglen = sizeof(sig);
-      DO(base16_decode(rfc_8032_7_1[n].signature, XSTRLEN(rfc_8032_7_1[n].signature), sig, &siglen));
+      DO(base16_decode(rfc_8032_7_1[n].signature, (unsigned long)XSTRLEN(rfc_8032_7_1[n].signature), sig, &siglen));
       DO(ed25519_import_raw(pub, plen, PK_PUBLIC, &key2));
       DO(ed25519_verify(msg, mlen, sig, siglen, &ret, &key2));
       COMPARE_TESTVECTOR(&ret, sizeof(ret), &should, sizeof(should), "Ed25519 RFC8032 7.1 - verify w/ pubkey", n);
@@ -318,15 +318,15 @@ static int s_rfc_8032_7_2_test(void)
 
    for (n = 0; n < LTC_ARRAY_SIZE(rfc_8032_7_2); ++n) {
       slen = sizeof(sec);
-      DO(base16_decode(rfc_8032_7_2[n].secret_key, XSTRLEN(rfc_8032_7_2[n].secret_key), sec, &slen));
+      DO(base16_decode(rfc_8032_7_2[n].secret_key, (unsigned long)XSTRLEN(rfc_8032_7_2[n].secret_key), sec, &slen));
       plen = sizeof(pub);
-      DO(base16_decode(rfc_8032_7_2[n].public_key, XSTRLEN(rfc_8032_7_2[n].public_key), pub, &plen));
+      DO(base16_decode(rfc_8032_7_2[n].public_key, (unsigned long)XSTRLEN(rfc_8032_7_2[n].public_key), pub, &plen));
       mlen = sizeof(msg);
-      DO(base16_decode(rfc_8032_7_2[n].message, XSTRLEN(rfc_8032_7_2[n].message), msg, &mlen));
+      DO(base16_decode(rfc_8032_7_2[n].message, (unsigned long)XSTRLEN(rfc_8032_7_2[n].message), msg, &mlen));
       siglen = sizeof(sig);
-      DO(base16_decode(rfc_8032_7_2[n].signature, XSTRLEN(rfc_8032_7_2[n].signature), sig, &siglen));
+      DO(base16_decode(rfc_8032_7_2[n].signature, (unsigned long)XSTRLEN(rfc_8032_7_2[n].signature), sig, &siglen));
       ctxlen = sizeof(ctx);
-      DO(base16_decode(rfc_8032_7_2[n].context, XSTRLEN(rfc_8032_7_2[n].context), ctx, &ctxlen));
+      DO(base16_decode(rfc_8032_7_2[n].context, (unsigned long)XSTRLEN(rfc_8032_7_2[n].context), ctx, &ctxlen));
       buflen = sizeof(buf);
 
       DO(ed25519_import_raw(sec, slen, PK_PRIVATE, &key));
@@ -379,13 +379,13 @@ static int s_rfc_8032_7_3_test(void)
 
    buflen = sizeof(buf);
    slen = sizeof(sec);
-   DO(base16_decode(rfc_8032_7_3[0].secret_key, XSTRLEN(rfc_8032_7_3[0].secret_key), sec, &slen));
+   DO(base16_decode(rfc_8032_7_3[0].secret_key, (unsigned long)XSTRLEN(rfc_8032_7_3[0].secret_key), sec, &slen));
    plen = sizeof(pub);
-   DO(base16_decode(rfc_8032_7_3[0].public_key, XSTRLEN(rfc_8032_7_3[0].public_key), pub, &plen));
+   DO(base16_decode(rfc_8032_7_3[0].public_key, (unsigned long)XSTRLEN(rfc_8032_7_3[0].public_key), pub, &plen));
    mlen = sizeof(msg);
-   DO(base16_decode(rfc_8032_7_3[0].message, XSTRLEN(rfc_8032_7_3[0].message), msg, &mlen));
+   DO(base16_decode(rfc_8032_7_3[0].message, (unsigned long)XSTRLEN(rfc_8032_7_3[0].message), msg, &mlen));
    siglen = sizeof(sig);
-   DO(base16_decode(rfc_8032_7_3[0].signature, XSTRLEN(rfc_8032_7_3[0].signature), sig, &siglen));
+   DO(base16_decode(rfc_8032_7_3[0].signature, (unsigned long)XSTRLEN(rfc_8032_7_3[0].signature), sig, &siglen));
 
    DO(ed25519_import_raw(sec, slen, PK_PRIVATE, &key));
    DO(ed25519ph_sign(msg, mlen, buf, &buflen, NULL, 0, &key));
@@ -417,14 +417,14 @@ static int s_signature_malleability_test(void)
    const int should = 0;
 
    plen = sizeof(pub);
-   DO(base16_decode(public_key, XSTRLEN(public_key), pub, &plen));
+   DO(base16_decode(public_key, (unsigned long)XSTRLEN(public_key), pub, &plen));
    mlen = sizeof(msg);
-   DO(base16_decode(message, XSTRLEN(message), msg, &mlen));
+   DO(base16_decode(message, (unsigned long)XSTRLEN(message), msg, &mlen));
    DO(ed25519_import_raw(pub, plen, PK_PUBLIC, &key));
 
    for (n = 0; n < LTC_ARRAY_SIZE(test_cases); ++n) {
       siglen = sizeof(sig);
-      DO(base16_decode(test_cases[n].sig, XSTRLEN(test_cases[n].sig), sig, &siglen));
+      DO(base16_decode(test_cases[n].sig, (unsigned long)XSTRLEN(test_cases[n].sig), sig, &siglen));
       DO(ed25519_verify(msg, mlen, sig, siglen, &ret, &key));
       COMPARE_TESTVECTOR(&ret, sizeof(ret), &should, sizeof(should), "Ed25519 malleability rejection", test_cases[n].tc_id);
    }

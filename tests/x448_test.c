@@ -184,9 +184,9 @@ static int s_x448_wycheproof_special_test(void)
    unsigned char priv[56], pub[56], expected[56], out[56];
    unsigned long len;
 
-   len = sizeof(priv);     DO(base16_decode(priv_hex, XSTRLEN(priv_hex), priv, &len));
-   len = sizeof(pub);      DO(base16_decode(pub_hex,  XSTRLEN(pub_hex),  pub,  &len));
-   len = sizeof(expected); DO(base16_decode(exp_hex,  XSTRLEN(exp_hex),  expected, &len));
+   len = sizeof(priv);     DO(base16_decode(priv_hex, (unsigned long)XSTRLEN(priv_hex), priv, &len));
+   len = sizeof(pub);      DO(base16_decode(pub_hex,  (unsigned long)XSTRLEN(pub_hex),  pub,  &len));
+   len = sizeof(expected); DO(base16_decode(exp_hex,  (unsigned long)XSTRLEN(exp_hex),  expected, &len));
    ec448_scalarmult_internal(out, priv, pub);
    COMPARE_TESTVECTOR(out, 56, expected, 56, "X448 Wycheproof tcId=22", 22);
    return CRYPT_OK;

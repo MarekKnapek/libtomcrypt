@@ -26,7 +26,7 @@ static int s_decrypt_pem(unsigned char *asn1_cert, unsigned long *asn1_len, cons
    }
 
    ivlen = sizeof(iv);
-   if ((err = base16_decode(hdr->info.iv, XSTRLEN(hdr->info.iv), iv, &ivlen)) != CRYPT_OK) {
+   if ((err = base16_decode(hdr->info.iv, (unsigned long)XSTRLEN(hdr->info.iv), iv, &ivlen)) != CRYPT_OK) {
       return err;
    }
    klen = hdr->info.keylen;
@@ -82,7 +82,7 @@ static int s_import_pkcs8(unsigned char *asn1_cert, unsigned long asn1_len, ltc_
       goto cleanup;
    }
    if (oid_id < 0
-         || oid_id > LTC_ARRAY_SIZE(s_import_pkcs8_map)
+         || (int)oid_id > (int)LTC_ARRAY_SIZE(s_import_pkcs8_map)
          || s_import_pkcs8_map[oid_id].fn == NULL) {
       err = CRYPT_PK_INVALID_TYPE;
       goto cleanup;
@@ -187,7 +187,7 @@ static int s_decode(struct get_char *g, ltc_pka_key *k, const password_ctx *pw_c
    }
 
    if (pka < 0
-         || pka > LTC_ARRAY_SIZE(s_import_openssl_fns)
+         || (int)pka > (int)LTC_ARRAY_SIZE(s_import_openssl_fns)
          || s_import_openssl_fns[pka] == NULL) {
       err = CRYPT_PK_INVALID_TYPE;
       goto cleanup;

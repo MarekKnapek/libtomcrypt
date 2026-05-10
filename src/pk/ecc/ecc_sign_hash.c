@@ -40,7 +40,7 @@ int ecc_sign_hash_v2(const unsigned char    *in,
                         ltc_ecc_sig_opts *opts,
                   const       ecc_key    *key)
 {
-   if (opts->type < 0 || opts->type >= LTC_ARRAY_SIZE(s_ecc_sign_hash))
+   if (opts->type < 0 || (int)opts->type >= (int)LTC_ARRAY_SIZE(s_ecc_sign_hash))
       return CRYPT_PK_INVALID_TYPE;
    if (s_ecc_sign_hash[opts->type] == NULL)
       return CRYPT_PK_INVALID_TYPE;

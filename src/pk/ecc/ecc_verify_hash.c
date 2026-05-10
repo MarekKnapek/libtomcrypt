@@ -48,7 +48,7 @@ int ecc_verify_hash_v2(const unsigned char *sig,
 {
    LTC_ARGCHK(stat != NULL);
    *stat = 0;
-   if (opts->type < 0 || opts->type >= LTC_ARRAY_SIZE(s_ecc_verify_hash))
+   if (opts->type < 0 || (int)opts->type >= (int)LTC_ARRAY_SIZE(s_ecc_verify_hash))
       return CRYPT_PK_INVALID_TYPE;
    if (s_ecc_verify_hash[opts->type] == NULL)
       return CRYPT_PK_INVALID_TYPE;
