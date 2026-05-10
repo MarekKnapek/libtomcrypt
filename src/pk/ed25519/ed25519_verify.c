@@ -33,7 +33,7 @@ static int s_ed25519_verify(const  unsigned char *msg, unsigned long msglen,
    mlen = msglen + siglen;
    if ((mlen < msglen) || (mlen < siglen)) return CRYPT_OVERFLOW;
 
-   m = XMALLOC(mlen);
+   m = XMALLOC((size_t)mlen);
    if (m == NULL) return CRYPT_MEM;
 
    XMEMCPY(m, sig, siglen);

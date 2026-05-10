@@ -292,9 +292,9 @@ static int s_ecc_wycheproof_p256_edgecase_dbl(void)
    unsigned long len, olen;
 
    DO(ecc_find_curve("SECP256R1", &cu));
-   len = sizeof(sk);       DO(base16_decode(priv_hex, XSTRLEN(priv_hex), sk, &len));
-   len = sizeof(pk);       DO(base16_decode(pub_hex,  XSTRLEN(pub_hex),  pk, &len));
-   len = sizeof(expected); DO(base16_decode(exp_hex,  XSTRLEN(exp_hex),  expected, &len));
+   len = sizeof(sk);       DO(base16_decode(priv_hex, (unsigned long)XSTRLEN(priv_hex), sk, &len));
+   len = sizeof(pk);       DO(base16_decode(pub_hex,  (unsigned long)XSTRLEN(pub_hex),  pk, &len));
+   len = sizeof(expected); DO(base16_decode(exp_hex,  (unsigned long)XSTRLEN(exp_hex),  expected, &len));
 
    DO(ecc_set_curve(cu, &priv));
    DO(ecc_set_key(sk, sizeof(sk), PK_PRIVATE, &priv));
@@ -334,7 +334,7 @@ static int s_ecc_wycheproof_p256_pem_edgecase_dbl(void)
    ENSURE(pub.id == LTC_PKA_EC);
 
    len = sizeof(expected);
-   DO(base16_decode(exp_hex, XSTRLEN(exp_hex), expected, &len));
+   DO(base16_decode(exp_hex, (unsigned long)XSTRLEN(exp_hex), expected, &len));
 
    olen = sizeof(out);
    DO(ecc_shared_secret(&priv.u.ecc, &pub.u.ecc, out, &olen));
@@ -371,7 +371,7 @@ static int s_ecc_wycheproof_p256_pem_invalid_explicit(void)
    int err;
 
    len = sizeof(bad_secret);
-   DO(base16_decode(bad_secret_hex, XSTRLEN(bad_secret_hex), bad_secret, &len));
+   DO(base16_decode(bad_secret_hex, (unsigned long)XSTRLEN(bad_secret_hex), bad_secret, &len));
 
    /* private import must succeed (it's well-formed) */
    DO(pem_decode(priv_pem, sizeof(priv_pem) - 1, &priv, NULL));
@@ -417,14 +417,14 @@ static int s_ecc_wycheproof_bp224_wrong_curve(void)
    DO(ecc_find_curve("BRAINPOOLP224R1", &bp_r1));
 
    slen = sizeof(spki);
-   DO(base16_decode(pub_spki_hex, XSTRLEN(pub_spki_hex), spki, &slen));
+   DO(base16_decode(pub_spki_hex, (unsigned long)XSTRLEN(pub_spki_hex), spki, &slen));
 
    /* import public key from its own SPKI; the named-curve OID binds pub to bp224t1, but the point also lies on bp224r1 per the Wycheproof vector */
    DO(ecc_import_openssl(spki, slen, &pub));
 
    /* set up the private key on bp224r1 with the listed scalar */
    len = sizeof(sk);
-   DO(base16_decode(priv_hex, XSTRLEN(priv_hex), sk, &len));
+   DO(base16_decode(priv_hex, (unsigned long)XSTRLEN(priv_hex), sk, &len));
    DO(ecc_set_curve(bp_r1, &priv));
    DO(ecc_set_key(sk, len, PK_PRIVATE, &priv));
 
@@ -773,9 +773,9 @@ static int s_ecc_shake_wycheproof_test(void)
          publen = sizeof(pub);
          msglen = sizeof(msg);
          siglen = sizeof(sig);
-         DOX(base16_decode(cases[i].tests[j].pub, XSTRLEN(cases[i].tests[j].pub), pub, &publen), name);
-         DOX(base16_decode(cases[i].tests[j].msg, XSTRLEN(cases[i].tests[j].msg), msg, &msglen), name);
-         DOX(base16_decode(cases[i].tests[j].sig, XSTRLEN(cases[i].tests[j].sig), sig, &siglen), name);
+         DOX(base16_decode(cases[i].tests[j].pub, (unsigned long)XSTRLEN(cases[i].tests[j].pub), pub, &publen), name);
+         DOX(base16_decode(cases[i].tests[j].msg, (unsigned long)XSTRLEN(cases[i].tests[j].msg), msg, &msglen), name);
+         DOX(base16_decode(cases[i].tests[j].sig, (unsigned long)XSTRLEN(cases[i].tests[j].sig), sig, &siglen), name);
 
          hashlen = sizeof(hash);
          DOX(hash_memory(hash_idx, msg, msglen, hash, &hashlen), name);
@@ -1465,7 +1465,20 @@ static int s_ecc_rfc6979(void)
                  }
                 },
                 {
-                 0
+                  NULL, NULL, NULL, NULL,
+                  {
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                    {NULL, NULL, NULL},
+                  }
                 }
    };
 
@@ -1492,40 +1505,40 @@ static int s_ecc_rfc6979(void)
                                 .wprng = find_prng ("yarrow")
    };
    for (t = 0; tests[t].curve; ++t) {
-      curvelen = XSTRLEN(tests[t].curve);
+      curvelen = (unsigned long)XSTRLEN(tests[t].curve);
       XMEMCPY(name, tests[t].curve, curvelen);
       name[curvelen++] = '-';
       DOX(ecc_find_curve(tests[t].curve, &dp), tests[t].curve);
       pklen = sizeof(pk);
-      DOX(base16_decode(tests[t].x, XSTRLEN(tests[t].x), pk, &pklen), tests[t].curve);
+      DOX(base16_decode(tests[t].x, (unsigned long)XSTRLEN(tests[t].x), pk, &pklen), tests[t].curve);
       DOX(ecc_set_curve(dp, &key), tests[t].curve);
       DOX(ecc_set_key(pk, pklen, PK_PRIVATE, &key), tests[t].curve);
       name[curvelen] = 'U';
       name[curvelen + 1] = 'x';
       name[curvelen + 2] = '\0';
       ltc_mp.write_radix(key.pubkey.x, tmp, 16);
-      COMPARE_TESTVECTOR(tmp, XSTRLEN(tmp), tests[t].Ux, XSTRLEN(tests[t].Ux), name, t * 1000);
+      COMPARE_TESTVECTOR(tmp, (unsigned long)XSTRLEN(tmp), tests[t].Ux, (unsigned long)XSTRLEN(tests[t].Ux), name, t * 1000);
       name[curvelen + 1] = 'y';
       ltc_mp.write_radix(key.pubkey.y, tmp, 16);
-      COMPARE_TESTVECTOR(tmp, XSTRLEN(tmp), tests[t].Uy, XSTRLEN(tests[t].Uy), name, t * 1000);
+      COMPARE_TESTVECTOR(tmp, (unsigned long)XSTRLEN(tmp), tests[t].Uy, (unsigned long)XSTRLEN(tests[t].Uy), name, t * 1000);
       i = h = 0;
       for (s = 0; tests[t].signatures[s].k; ++s) {
          if (h == 0) {
-            inputlen = XSTRLEN(inputs[i]);
+            inputlen = (unsigned long)XSTRLEN(inputs[i]);
             XMEMCPY(&name[curvelen], inputs[i], inputlen);
             name[curvelen + inputlen++] = '-';
          }
          XMEMCPY(&name[curvelen + inputlen], hashes[h], 7);
          hashlen = sizeof(hash);
-         DOX(hash_memory(find_hash(hashes[h]), inputs[i], XSTRLEN(inputs[i]), hash, &hashlen), name);
+         DOX(hash_memory(find_hash(hashes[h]), inputs[i], (unsigned long)XSTRLEN(inputs[i]), hash, &hashlen), name);
          sig_opts.rfc6979_hash_alg = hashes[h];
          siglen = sizeof(sig);
          DOX(ecc_sign_hash_v2(hash, hashlen, sig, &siglen, &sig_opts, &key), name);
          XMEMSET(should, 0, sizeof(should));
          shouldlen = sizeof(should);
-         DOX(base16_decode(tests[t].signatures[s].r, XSTRLEN(tests[t].signatures[s].r), should, &shouldlen), name);
+         DOX(base16_decode(tests[t].signatures[s].r, (unsigned long)XSTRLEN(tests[t].signatures[s].r), should, &shouldlen), name);
          shouldlen2 = sizeof(should) - shouldlen;
-         DOX(base16_decode(tests[t].signatures[s].s, XSTRLEN(tests[t].signatures[s].s), should + shouldlen, &shouldlen2), name);
+         DOX(base16_decode(tests[t].signatures[s].s, (unsigned long)XSTRLEN(tests[t].signatures[s].s), should + shouldlen, &shouldlen2), name);
          COMPARE_TESTVECTOR(sig, siglen, should, shouldlen + shouldlen2, name, (t * 1000 | s * 100 | i * 10 | h));
          h++;
          if (h == 5) {
@@ -1542,7 +1555,7 @@ static int s_ecc_rfc6979(void)
 static int password_get(void **p, unsigned long *l, void *u)
 {
    LTC_UNUSED_PARAM(u);
-   *p = strdup("secret");
+   *p = ltc_strdup("secret");
    *l = 6;
    return 0;
 }

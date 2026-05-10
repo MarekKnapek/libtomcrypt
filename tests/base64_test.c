@@ -72,7 +72,7 @@ int base64_test(void)
    };
 
    for (x = 0; x < LTC_ARRAY_SIZE(url_cases); ++x) {
-       slen1 = XSTRLEN(url_cases[x].s);
+       slen1 = (unsigned long)XSTRLEN(url_cases[x].s);
        l1 = sizeof(tmp);
        if(url_cases[x].flag == strict) {
           DO(base64url_strict_decode(url_cases[x].s, slen1, tmp, &l1));
@@ -103,11 +103,11 @@ int base64_test(void)
        l2 = sizeof(out);
        if(x == 0) {
           DO(base64url_encode(tmp, l1, out, &l2));
-          COMPARE_TESTVECTOR(out, l2, url_cases[x].s, XSTRLEN(url_cases[x].s), "base64url_encode", x);
+          COMPARE_TESTVECTOR(out, l2, url_cases[x].s, (unsigned long)XSTRLEN(url_cases[x].s), "base64url_encode", x);
        }
        if(x == 1) {
           DO(base64url_strict_encode(tmp, l1, out, &l2));
-          COMPARE_TESTVECTOR(out, l2, url_cases[x].s, XSTRLEN(url_cases[x].s), "base64url_strict_encode", x);
+          COMPARE_TESTVECTOR(out, l2, url_cases[x].s, (unsigned long)XSTRLEN(url_cases[x].s), "base64url_strict_encode", x);
        }
    }
 #endif
@@ -116,10 +116,10 @@ int base64_test(void)
    for (x = 0; x < LTC_ARRAY_SIZE(cases); ++x) {
        memset(out, 0, sizeof(out));
        memset(tmp, 0, sizeof(tmp));
-       slen1 = XSTRLEN(cases[x].s);
+       slen1 = (unsigned long)XSTRLEN(cases[x].s);
        l1 = sizeof(out);
        DO(base64_encode((unsigned char*)cases[x].s, slen1, out, &l1));
-       COMPARE_TESTVECTOR(out, l1, cases[x].b64, XSTRLEN(cases[x].b64), "base64_encode", x);
+       COMPARE_TESTVECTOR(out, l1, cases[x].b64, (unsigned long)XSTRLEN(cases[x].b64), "base64_encode", x);
        l2 = sizeof(tmp);
        DO(base64_strict_decode(out, l1, tmp, &l2));
        COMPARE_TESTVECTOR(tmp, l2, cases[x].s, slen1, "base64_strict_decode", x);
@@ -157,20 +157,20 @@ int base64_test(void)
    DO(base64_strict_decode(out, l1, tmp, &l2) == CRYPT_INVALID_PACKET ? CRYPT_OK : CRYPT_INVALID_PACKET);
 
    memset(in, 'A', sizeof(in));
-   l1 = strlen(As_lf);
+   l1 = (unsigned long)strlen(As_lf);
    SHOULD_FAIL(base64_encode_pem(in, 51, out, &l1, 0));
    l1++;
    DO(base64_encode_pem(in, 51, out, &l1, 0));
-   COMPARE_TESTVECTOR(out, l1, As_lf, strlen(As_lf), "PEM output with \\n", 0);
-   l1 = strlen(As_crlf) + 1;
+   COMPARE_TESTVECTOR(out, l1, As_lf, (unsigned long)strlen(As_lf), "PEM output with \\n", 0);
+   l1 = (unsigned long)strlen(As_crlf) + 1;
    DO(base64_encode_pem(in, 51, out, &l1, BASE64_PEM_CRLF));
-   COMPARE_TESTVECTOR(out, l1, As_crlf, strlen(As_crlf), "PEM output with \\r\\n", 0);
-   l1 = strlen(As_ssh_lf) + 1;
+   COMPARE_TESTVECTOR(out, l1, As_crlf, (unsigned long)strlen(As_crlf), "PEM output with \\r\\n", 0);
+   l1 = (unsigned long)strlen(As_ssh_lf) + 1;
    DO(base64_encode_pem(in, 57, out, &l1, BASE64_PEM_SSH));
-   COMPARE_TESTVECTOR(out, l1, As_ssh_lf, strlen(As_ssh_lf), "PEM SSH-style output with \\n", 0);
-   l1 = strlen(As_ssh_crlf) + 1;
+   COMPARE_TESTVECTOR(out, l1, As_ssh_lf, (unsigned long)strlen(As_ssh_lf), "PEM SSH-style output with \\n", 0);
+   l1 = (unsigned long)strlen(As_ssh_crlf) + 1;
    DO(base64_encode_pem(in, 57, out, &l1, BASE64_PEM_SSH | BASE64_PEM_CRLF));
-   COMPARE_TESTVECTOR(out, l1, As_ssh_crlf, strlen(As_ssh_crlf), "PEM SSH-style output with \\r\\n", 0);
+   COMPARE_TESTVECTOR(out, l1, As_ssh_crlf, (unsigned long)strlen(As_ssh_crlf), "PEM SSH-style output with \\r\\n", 0);
 #endif
 
    return 0;

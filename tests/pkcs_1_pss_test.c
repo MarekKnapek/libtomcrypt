@@ -81,8 +81,8 @@ static int s_pss_shake_wycheproof_test(void)
     DOX(rsa_init(&key), cases[i].name);
     nlen = sizeof(n);
     elen = sizeof(e);
-    DOX(base16_decode(cases[i].n, XSTRLEN(cases[i].n), n, &nlen), cases[i].name);
-    DOX(base16_decode(cases[i].e, XSTRLEN(cases[i].e), e, &elen), cases[i].name);
+    DOX(base16_decode(cases[i].n, (unsigned long)XSTRLEN(cases[i].n), n, &nlen), cases[i].name);
+    DOX(base16_decode(cases[i].e, (unsigned long)XSTRLEN(cases[i].e), e, &elen), cases[i].name);
     DOX(ltc_mp_read_unsigned_bin(key.N, n, nlen), cases[i].name);
     DOX(ltc_mp_read_unsigned_bin(key.e, e, elen), cases[i].name);
     key.type = PK_PUBLIC;
@@ -98,8 +98,8 @@ static int s_pss_shake_wycheproof_test(void)
       snprintf(name, sizeof(name), "Wycheproof %s/%d tcId=%d", cases[i].name, hash_idx, cases[i].tests[j].tc_id);
       msglen = sizeof(msg);
       siglen = sizeof(sig);
-      DOX(base16_decode(cases[i].tests[j].msg, XSTRLEN(cases[i].tests[j].msg), msg, &msglen), name);
-      DOX(base16_decode(cases[i].tests[j].sig, XSTRLEN(cases[i].tests[j].sig), sig, &siglen), name);
+      DOX(base16_decode(cases[i].tests[j].msg, (unsigned long)XSTRLEN(cases[i].tests[j].msg), msg, &msglen), name);
+      DOX(base16_decode(cases[i].tests[j].sig, (unsigned long)XSTRLEN(cases[i].tests[j].sig), sig, &siglen), name);
 
       hashlen = hash_descriptor[hash_idx].hashsize;
       DOX(hash_memory(hash_idx, msg, msglen, hash, &hashlen), name);

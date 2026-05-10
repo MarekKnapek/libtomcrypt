@@ -39,7 +39,7 @@ int base32_test(void)
    for (idx = 0; idx < 4; idx++) {
       l1 = sizeof(out);
       DO(base32_encode(testin, sizeof(testin), out, &l1, testid[idx]));
-      COMPARE_TESTVECTOR(out, l1, testout[idx], XSTRLEN(testout[idx]), "testout base32", idx);
+      COMPARE_TESTVECTOR(out, l1, testout[idx], (unsigned long)XSTRLEN(testout[idx]), "testout base32", idx);
       l2 = sizeof(tmp);
       DO(base32_decode(out, l1, tmp, &l2, testid[idx]));
       COMPARE_TESTVECTOR(tmp, l2, testin, sizeof(testin), "testin base32", idx);
