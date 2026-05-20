@@ -20,7 +20,7 @@
 
 const struct ltc_hash_descriptor sha1_portable_desc =
 {
-    "sha1",
+    "sha1 (portable)",
     2,
     20,
     64,

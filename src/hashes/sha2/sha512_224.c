@@ -11,7 +11,7 @@
 
 const struct ltc_hash_descriptor sha512_224_portable_desc =
 {
-    "sha512-224",
+    "sha512-224 (portable)",
     15,
     28,
     128,

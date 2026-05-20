@@ -44,6 +44,8 @@ static int sorter(const void *a, const void *b)
 static void tally_results(int type)
 {
    int x;
+   int len;
+   int longest;
 
    /* qsort the results */
    qsort(results, no_results, sizeof(struct list), &sorter);
@@ -59,9 +61,14 @@ static void tally_results(int type)
           ("%-20s[%3d]: Encrypt at %5"PRI64"u, Decrypt at %5"PRI64"u\n", cipher_descriptor[results[x].id].name, cipher_descriptor[results[x].id].ID, results[x].spd1, results[x].spd2);
       }
    } else {
+      longest = 0;
+      for (x = 0; x < no_results; x++) {
+        len = (int)strlen(hash_descriptor[results[x].id].name);
+        longest = len > longest ? len : longest;
+      }
       for (x = 0; x < no_results; x++) {
         printf
-          ("%-20s: Process at %5"PRI64"u\n", hash_descriptor[results[x].id].name, results[x].spd1 / 1000);
+          ("%-*s: Process at %5"PRI64"u\n", longest, hash_descriptor[results[x].id].name, results[x].spd1 / 1000);
       }
    }
 }

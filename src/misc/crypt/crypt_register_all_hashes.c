@@ -28,42 +28,63 @@ int register_all_hashes(void)
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha1_desc);
+   #if defined LTC_SHA1_X86
+   REGISTER_HASH(&sha1_portable_desc);
+   #endif
 #endif
 #ifdef LTC_SHA256
    /* `sha256_desc` does the multiplexing into `sha256_x86_desc` resp. `sha256_portable_desc`
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha256_desc);
+   #if defined LTC_SHA256_X86
+   REGISTER_HASH(&sha256_portable_desc);
+   #endif
 #endif
 #ifdef LTC_SHA224
    /* `sha224_desc` does the multiplexing into `sha224_x86_desc` resp. `sha224_portable_desc`
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha224_desc);
+   #if defined LTC_SHA224_X86
+   REGISTER_HASH(&sha224_portable_desc);
+   #endif
 #endif
 #ifdef LTC_SHA512
    /* `sha512_desc` does the multiplexing into `sha512_x86_desc` resp. `sha512_portable_desc`
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha512_desc);
+   #if defined LTC_SHA512_X86
+   REGISTER_HASH(&sha512_portable_desc);
+   #endif
 #endif
 #ifdef LTC_SHA384
    /* `sha384_desc` does the multiplexing into `sha384_x86_desc` resp. `sha384_portable_desc`
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha384_desc);
+   #if defined LTC_SHA384_X86
+   REGISTER_HASH(&sha384_portable_desc);
+   #endif
 #endif
 #ifdef LTC_SHA512_224
    /* `sha512_224_desc` does the multiplexing into `sha512_224_x86_desc` resp. `sha512_224_portable_desc`
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha512_224_desc);
+   #if defined LTC_SHA512_224_X86
+   REGISTER_HASH(&sha512_224_portable_desc);
+   #endif
 #endif
 #ifdef LTC_SHA512_256
    /* `sha512_256_desc` does the multiplexing into `sha512_256_x86_desc` resp. `sha512_256_portable_desc`
     * depending on the capabilities of the CPU.
     */
    REGISTER_HASH(&sha512_256_desc);
+   #if defined LTC_SHA512_256_X86
+   REGISTER_HASH(&sha512_256_portable_desc);
+   #endif
 #endif
 #ifdef LTC_MD5
    REGISTER_HASH(&md5_desc);

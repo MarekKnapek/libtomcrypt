@@ -11,7 +11,7 @@
 
 const struct ltc_hash_descriptor sha256_portable_desc =
 {
-    "sha256",
+    "sha256 (portable)",
     0,
     32,
     64,
